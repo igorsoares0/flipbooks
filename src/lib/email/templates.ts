@@ -1,0 +1,52 @@
+import type { Email } from ".";
+
+// Inline styles only: email clients ignore stylesheets. Colors come from the design tokens.
+const INK = "#17150F";
+const MUTED = "#6E6A5E";
+const PAPER = "#F3F1EC";
+const LINE = "#E4E0D6";
+
+function escape(value: string) {
+  return value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+}
+
+function layout({ heading, body, cta, url, footnote }: { heading: string; body: string; cta: string; url: string; footnote: string }) {
+  return `<!doctype html>
+<html><body style="margin:0;background:${PAPER};font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:${INK}">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#fff;border:1px solid ${LINE};border-radius:16px">
+        <tr><td style="padding:32px 32px 8px;font-size:15px;font-weight:600">Flipbook</td></tr>
+        <tr><td style="padding:8px 32px 0;font-family:Georgia,serif;font-size:28px;line-height:1.15">${escape(heading)}</td></tr>
+        <tr><td style="padding:12px 32px 24px;font-size:14px;line-height:1.6;color:${MUTED}">${escape(body)}</td></tr>
+        <tr><td style="padding:0 32px 28px">
+          <a href="${escape(url)}" style="display:inline-block;background:${INK};color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 20px;border-radius:10px">${escape(cta)}</a>
+        </td></tr>
+        <tr><td style="padding:0 32px 32px;font-size:12px;line-height:1.5;color:#A5A091">${escape(footnote)}<br>${escape(url)}</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+export function verifyEmail({ to, name, url }: { to: string; name: string; url: string }): Email {
+  const body = `Hi ${name}, confirm your email address so you can publish flipbooks.`;
+  const footnote = "If you didn't create a Flipbook account, you can ignore this email.";
+  return {
+    to,
+    subject: "Verify your email for Flipbook",
+    html: layout({ heading: "Confirm your email", body, cta: "Verify email", url, footnote }),
+    text: `${body}\n\nVerify: ${url}\n\n${footnote}`,
+  };
+}
+
+export function resetPasswordEmail({ to, name, url }: { to: string; name: string; url: string }): Email {
+  const body = `Hi ${name}, we got a request to reset your password. The link expires in 30 minutes.`;
+  const footnote = "If you didn't ask for this, your password stays the same.";
+  return {
+    to,
+    subject: "Reset your Flipbook password",
+    html: layout({ heading: "Reset your password", body, cta: "Choose a new password", url, footnote }),
+    text: `${body}\n\nReset: ${url}\n\n${footnote}`,
+  };
+}

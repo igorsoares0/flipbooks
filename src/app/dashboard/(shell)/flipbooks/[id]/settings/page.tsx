@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { FlipbookSettings, type SettingsTab } from "@/components/flipbook/flipbook-settings";
-import { getBilling, getFlipbook, getFlipbookPages } from "@/lib/data";
+import { getEntitlements, getFlipbook, getFlipbookPages } from "@/lib/data";
 import { embedFlipbookUrl, siteUrl } from "@/lib/site";
 
 const TABS: SettingsTab[] = ["general", "branding", "share"];
@@ -17,9 +17,9 @@ export default async function FlipbookSettingsPage({ params, searchParams }: Pag
   const flipbook = await getFlipbook(id);
   if (!flipbook) notFound();
 
-  const [pages, billing] = await Promise.all([getFlipbookPages(id), getBilling()]);
   // The preview shows the same spread as the design: pages 4–5, or the first spread of a short book.
-  const previewPages = pages.length >= 5 ? pages.slice(3, 5) : pages.slice(0, 2);
+  const pageNumbers = flipbook.pageCount >= 5 ? [4, 5] : [1, 2];
+  const [previewPages, entitlements] = await Promise.all([getFlipbookPages(id, { pageNumbers }), getEntitlements()]);
 
   return (
     <FlipbookSettings
@@ -29,13 +29,15 @@ export default async function FlipbookSettingsPage({ params, searchParams }: Pag
         slug: flipbook.slug,
         description: flipbook.description,
         visibility: flipbook.visibility,
+        status: flipbook.status,
         settings: flipbook.settings,
       }}
       previewPages={previewPages}
       pageCount={flipbook.pageCount}
       publicUrlBase={siteUrl.origin}
       embedUrl={embedFlipbookUrl(flipbook.id)}
-      canRemoveBranding={billing.entitlements.canRemoveBranding}
+      canRemoveBranding={entitlements.canRemoveBranding}
+      canUseCustomSlug={entitlements.canUseCustomSlug}
       initialTab={TABS.find((t) => t === tab) ?? "general"}
     />
   );

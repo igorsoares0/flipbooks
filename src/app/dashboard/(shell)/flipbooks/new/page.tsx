@@ -1,15 +1,16 @@
 import { SquarePlus, Upload } from "lucide-react";
 import type { Metadata } from "next";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { OpenEditorButton } from "@/components/flipbook/open-editor-button";
 import { TemplateGallery } from "@/components/flipbook/template-gallery";
-import { DRAFT_FLIPBOOK_ID, getBilling, getTemplates } from "@/lib/data";
+import { Button } from "@/components/ui/button";
+import { createFlipbookAction } from "@/lib/actions/flipbooks";
+import { getBilling } from "@/lib/data";
+import { TEMPLATES } from "@/lib/templates";
 
 export const metadata: Metadata = { title: "Create flipbook" };
 
-const editorHref = `/dashboard/flipbooks/${DRAFT_FLIPBOOK_ID}/editor`;
-
 export default async function CreateFlipbookPage() {
-  const [templates, billing] = await Promise.all([getTemplates(), getBilling()]);
+  const billing = await getBilling();
   const { maxPdfBytes, maxPdfPages } = billing.entitlements;
   const planName = billing.plan === "LIFETIME" ? "Lifetime" : "Free";
 
@@ -44,14 +45,14 @@ export default async function CreateFlipbookPage() {
           <p className="mt-[7px] mb-4 max-w-[280px] text-[12.5px] leading-[1.55] text-pretty text-muted">
             Open the canvas editor with a blank page, or start from one of the templates below.
           </p>
-          <ButtonLink href={editorHref} className="rounded-lg px-4">
-            Open editor
-          </ButtonLink>
+          <form action={createFlipbookAction}>
+            <OpenEditorButton />
+          </form>
           <div className="mt-3 font-mono text-[10px] font-medium text-muted-3">CANVAS · KONVA + ZUSTAND</div>
         </div>
       </div>
 
-      <TemplateGallery templates={templates} editorHref={editorHref} />
+      <TemplateGallery templates={TEMPLATES} />
     </div>
   );
 }

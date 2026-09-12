@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PlaceholderPage } from "@/components/dashboard/placeholder-page";
-import { getAnalytics, getFlipbook } from "@/lib/data";
+import { ButtonLink } from "@/components/ui/button";
+import { getAnalytics, getEntitlements, getFlipbook } from "@/lib/data";
 import { formatCount, formatDuration, formatPercentDelta, formatShortDate } from "@/lib/format";
 import { siteHost } from "@/lib/site";
 import type { AnalyticsRange } from "@/lib/types";
@@ -41,6 +42,18 @@ export default async function AnalyticsPage({ params, searchParams }: PageProps<
 
   const flipbook = await getFlipbook(id);
   if (!flipbook) notFound();
+
+  if (!(await getEntitlements()).canUseAnalytics) {
+    return (
+      <PlaceholderPage
+        icon={ChartNoAxesColumn}
+        title="Analytics are part of the Lifetime Deal"
+        body="See views, reading time, per-page drop-off, devices and countries for every flipbook."
+        action={<ButtonLink href="/dashboard/billing?upgrade=analytics">See the Lifetime Deal</ButtonLink>}
+      />
+    );
+  }
+
   const analytics = await getAnalytics(id, range);
 
   if (!analytics) {

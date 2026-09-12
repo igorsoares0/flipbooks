@@ -18,7 +18,8 @@ import Form from "next/form";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { ButtonLink } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { authClient } from "@/lib/auth/client";
 import { Logo } from "@/components/ui/logo";
 import { Meter } from "@/components/ui/meter";
 import { cn } from "@/lib/utils";
@@ -50,8 +51,47 @@ function titleFor(path: string) {
   return NAV.find((item) => item.isActive(path))?.label ?? "Dashboard";
 }
 
-export type ShellUser = { name: string; email: string; initials: string };
-export type ShellStorage = { used: string; limit: string; ratio: number; planLabel: string };
+export type ShellUser = { name: string; email: string; initials: string; emailVerified: boolean };
+export type ShellStorage = { used: string; limit: string; ratio: number; planLabel: string; planBadge: string };
+
+function SignOutButton() {
+  const [pending, setPending] = useState(false);
+  return (
+    <Button
+      variant="secondary"
+      className="flex-1 rounded-lg p-[7px] text-[11px] text-ink-70"
+      disabled={pending}
+      onClick={async () => {
+        setPending(true);
+        await authClient.signOut();
+        // A full page load drops the client router cache, so Back can't show signed-in pages.
+        window.location.assign("/login");
+      }}
+    >
+      Sign out
+    </Button>
+  );
+}
+
+/** Shown until the email is verified: publishing needs a verified address. */
+function VerifyEmailBanner({ email }: { email: string }) {
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const resend = async () => {
+    setState("sending");
+    const { error } = await authClient.sendVerificationEmail({ email, callbackURL: "/dashboard" });
+    setState(error ? "error" : "sent");
+  };
+  return (
+    <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-warning/25 bg-warning-soft px-4 py-2.5 text-[12.5px] text-warning-ink md:px-7">
+      <span>
+        <span className="font-semibold">Verify your email to publish.</span> We sent a link to {email}.
+      </span>
+      <button onClick={resend} disabled={state === "sending" || state === "sent"} className="font-semibold underline underline-offset-2 disabled:no-underline">
+        {state === "sent" ? "Link sent" : state === "error" ? "Couldn't send, try again" : state === "sending" ? "Sending…" : "Resend link"}
+      </button>
+    </div>
+  );
+}
 
 function Sidebar({
   user,
@@ -71,7 +111,7 @@ function Sidebar({
       <div className="flex items-center gap-2.5 px-5 pt-[22px] pb-[18px]">
         <Logo />
         <span className="ml-auto rounded border border-line px-[5px] py-0.5 font-mono text-[9px] font-medium text-muted-2">
-          LTD
+          {storage.planBadge}
         </span>
       </div>
 
@@ -120,9 +160,8 @@ function Sidebar({
           <ButtonLink href="/" variant="secondary" className="flex-1 rounded-lg p-[7px] text-[11px] text-ink-70">
             Site
           </ButtonLink>
-          <ButtonLink href="/login" variant="secondary" className="flex-1 rounded-lg p-[7px] text-[11px] text-ink-70">
-            Sign out
-          </ButtonLink>
+          <SignOutButton />
+
         </div>
         <div className="mt-3.5 flex items-center gap-2.5 px-0.5">
           <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft-2 text-[11.5px] font-semibold text-accent">
@@ -207,6 +246,8 @@ export function AppShell({
             Create flipbook
           </ButtonLink>
         </header>
+
+        {!user.emailVerified && <VerifyEmailBanner email={user.email} />}
 
         <div key={pathname} className="flex-1 animate-fbfade px-4 pt-7 pb-[60px] md:px-7">
           {children}

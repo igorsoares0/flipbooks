@@ -3,13 +3,13 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { useStore } from "zustand";
 import type { Page } from "@/lib/types";
-import { createEditorStore, type EditorState, type EditorStore } from "./editor-store";
+import { createEditorStore, type EditorState, type EditorStore, type SaveDocument } from "./editor-store";
 
 const EditorStoreContext = createContext<EditorStore | null>(null);
 
 // One store per mounted editor, so navigating between documents never leaks state.
-export function EditorStoreProvider({ pages, children }: { pages: Page[]; children: ReactNode }) {
-  const [store] = useState(() => createEditorStore(pages));
+export function EditorStoreProvider({ pages, save, children }: { pages: Page[]; save: SaveDocument; children: ReactNode }) {
+  const [store] = useState(() => createEditorStore(pages, { save }));
   return <EditorStoreContext.Provider value={store}>{children}</EditorStoreContext.Provider>;
 }
 

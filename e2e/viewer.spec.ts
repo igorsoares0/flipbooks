@@ -1,4 +1,4 @@
-import { expect, test } from "./fixtures";
+import { expect, signedOut, test } from "./fixtures";
 
 test.describe("public viewer", () => {
   test("opens on the cover and pages through spreads", async ({ page }) => {
@@ -72,5 +72,46 @@ test.describe("embed", () => {
     await expect(frame.getByText("1 / 64")).toBeVisible();
     await frame.getByRole("button", { name: "Next pages" }).click();
     await expect(frame.getByText("2–3 / 64")).toBeVisible();
+  });
+});
+
+test.describe("who can read what", () => {
+  test.describe("signed out", () => {
+    test.use({ ...signedOut, allowedConsoleErrors: [/status of 404/] });
+
+    test("published books are public", async ({ page }) => {
+      expect((await page.goto("/f/summer-catalog"))?.status()).toBe(200);
+      expect((await page.goto("/embed/fb_theo_pub"))?.status()).toBe(200);
+    });
+
+    test("drafts, ready and private books are not", async ({ page }) => {
+      expect((await page.goto("/f/investor-deck"))?.status()).toBe(404); // draft, private
+      expect((await page.goto("/f/lookbook-ss26"))?.status()).toBe(404); // ready, not published
+      expect((await page.goto("/embed/fb_theo_priv"))?.status()).toBe(404);
+    });
+  });
+
+  test.describe("as the owner", () => {
+    test("drafts can be previewed", async ({ page }) => {
+      expect((await page.goto("/f/investor-deck"))?.status()).toBe(200);
+      expect((await page.goto("/f/lookbook-ss26"))?.status()).toBe(200);
+    });
+  });
+
+  test.describe("someone else's books", () => {
+    test.use({ allowedConsoleErrors: [/status of 404/] });
+
+    for (const path of [
+      "/dashboard/flipbooks/fb_theo_pub/settings",
+      "/dashboard/flipbooks/fb_theo_pub/editor",
+      "/dashboard/flipbooks/fb_theo_pub/analytics",
+      "/dashboard/flipbooks/fb_theo_priv/settings",
+      "/embed/fb_theo_priv",
+      "/f/theo-private-notes",
+    ]) {
+      test(`${path} is a 404 for the demo user`, async ({ page }) => {
+        expect((await page.goto(path))?.status()).toBe(404);
+      });
+    }
   });
 });

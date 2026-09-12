@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { saveDocumentAction } from "@/lib/actions/flipbooks";
 import type { FlipbookType, Page } from "@/lib/types";
 import { EditorStoreProvider, useEditor } from "../state/editor-context";
 import { Artboard } from "./artboard";
@@ -35,11 +36,32 @@ function useShortcuts() {
   }, [undo, redo, deleteSelection, duplicateSelection, hasSelection]);
 }
 
-function EditorLayout({ title, type, previewHref }: { title: string; type: FlipbookType; previewHref: string | null }) {
+/** Warn before closing the tab while an edit hasn't reached the server yet. */
+function useUnsavedChangesWarning() {
+  const dirty = useEditor((s) => s.dirty);
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
+}
+
+type EditorProps = {
+  flipbookId: string;
+  title: string;
+  type: FlipbookType;
+  slug: string;
+  published: boolean;
+  pages: Page[];
+};
+
+function EditorLayout({ flipbookId, title, type, slug, published }: Omit<EditorProps, "pages">) {
   useShortcuts();
+  useUnsavedChangesWarning();
   return (
     <div className="flex h-dvh flex-col bg-editor">
-      <EditorTopbar title={title} type={type} previewHref={previewHref} />
+      <EditorTopbar flipbookId={flipbookId} title={title} type={type} slug={slug} published={published} />
       <div className="flex min-h-0 flex-1">
         <ToolRail />
         <ToolPanel />
@@ -53,20 +75,10 @@ function EditorLayout({ title, type, previewHref }: { title: string; type: Flipb
   );
 }
 
-export function Editor({
-  title,
-  type,
-  pages,
-  previewHref,
-}: {
-  title: string;
-  type: FlipbookType;
-  pages: Page[];
-  previewHref: string | null;
-}) {
+export function Editor({ pages, ...props }: EditorProps) {
   return (
-    <EditorStoreProvider pages={pages}>
-      <EditorLayout title={title} type={type} previewHref={previewHref} />
+    <EditorStoreProvider pages={pages} save={(next) => saveDocumentAction(props.flipbookId, next)}>
+      <EditorLayout {...props} />
     </EditorStoreProvider>
   );
 }

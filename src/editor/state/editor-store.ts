@@ -5,11 +5,14 @@ import { newId } from "@/lib/utils";
 export type Tool = "text" | "shapes" | "uploads" | "elements" | "photos" | "layers";
 export type TextPreset = "heading" | "subheading" | "body";
 export type ShapeKind = ShapeElement["properties"]["shape"];
-export type SaveStatus = "saved" | "saving";
+export type SaveStatus = "saved" | "saving" | "error";
+
+/** Persists the whole document; resolves with an error message on failure. */
+export type SaveDocument = (pages: Page[]) => Promise<{ ok: true } | { ok: false; error: string }>;
 
 const HISTORY_LIMIT = 100;
-// Stand-in for the debounced autosave (500–1000 ms → PATCH document) of the editor phase.
-const AUTOSAVE_DELAY = 900;
+// Autosave debounce from the spec (500–1000 ms).
+export const AUTOSAVE_DELAY = 800;
 
 export interface EditorState {
   pages: Page[];
@@ -18,8 +21,13 @@ export interface EditorState {
   selectedId: string | null;
   tool: Tool;
   saveStatus: SaveStatus;
+  saveError: string | null;
+  /** True from the first edit until the server has confirmed the latest version. */
+  dirty: boolean;
   past: Page[][];
   future: Page[][];
+
+  retrySave: () => void;
 
   selectTool: (tool: Tool) => void;
   select: (elementId: string | null) => void;
@@ -45,21 +53,35 @@ const SHAPES: Record<ShapeKind, { name: string; width: number; height: number; r
   line: { name: "Line", width: 200, height: 2, radius: 0 },
 };
 
-export function createEditorStore(initialPages: Page[]) {
+export function createEditorStore(initialPages: Page[], { save }: { save: SaveDocument }) {
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  // Each save carries a version so a slow response never marks newer edits as saved.
+  let version = 0;
 
   return createStore<EditorState>()((set, get) => {
-    /** Applies a document change: records history and triggers the autosave indicator. */
+    const persist = async () => {
+      const sent = version;
+      const result = await save(get().pages);
+      if (sent !== version) return; // a newer edit is already queued
+      set(result.ok ? { saveStatus: "saved", saveError: null, dirty: false } : { saveStatus: "error", saveError: result.error });
+    };
+
+    const scheduleSave = () => {
+      version += 1;
+      set({ saveStatus: "saving", saveError: null, dirty: true });
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(persist, AUTOSAVE_DELAY);
+    };
+
+    /** Applies a document change: records history and schedules an autosave. */
     const commit = (pages: Page[], patch: Partial<EditorState> = {}) => {
       set((s) => ({
         pages,
         past: [...s.past, s.pages].slice(-HISTORY_LIMIT),
         future: [],
-        saveStatus: "saving",
         ...patch,
       }));
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => set({ saveStatus: "saved" }), AUTOSAVE_DELAY);
+      scheduleSave();
     };
 
     const activePage = () => get().pages.find((p) => p.id === get().activePageId) ?? get().pages[0];
@@ -85,8 +107,16 @@ export function createEditorStore(initialPages: Page[]) {
       selectedId: initialPages[0].elements[0]?.id ?? null,
       tool: "text",
       saveStatus: "saved",
+      saveError: null,
+      dirty: false,
       past: [],
       future: [],
+
+      retrySave: () => {
+        clearTimeout(saveTimer);
+        set({ saveStatus: "saving", saveError: null });
+        void persist();
+      },
 
       selectTool: (tool) => set({ tool }),
       select: (selectedId) => set({ selectedId }),
@@ -203,6 +233,7 @@ export function createEditorStore(initialPages: Page[]) {
         if (past.length === 0) return;
         const previous = past[past.length - 1];
         set({ ...reconcile(previous), past: past.slice(0, -1), future: [pages, ...future] });
+        scheduleSave();
       },
 
       redo: () => {
@@ -210,6 +241,7 @@ export function createEditorStore(initialPages: Page[]) {
         if (future.length === 0) return;
         const [next, ...rest] = future;
         set({ ...reconcile(next), past: [...past, pages], future: rest });
+        scheduleSave();
       },
     };
   });

@@ -1,11 +1,20 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PageCanvas } from "@/components/flipbook/page-canvas";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import type { FlipbookSettings as Settings, Page, Visibility } from "@/lib/types";
+import {
+  checkSlugAction,
+  deleteFlipbookAction,
+  publishFlipbookAction,
+  updateFlipbookAction,
+  updateSlugAction,
+} from "@/lib/actions/flipbooks";
+import { DESCRIPTION_MAX, slugProblem } from "@/lib/flipbook-rules";
+import type { FlipbookStatus, FlipbookSettings as Settings, Page, Visibility } from "@/lib/types";
 import { cn, isDarkColor } from "@/lib/utils";
+import type { FlipbookPatch } from "@/lib/validation";
 
 export type SettingsTab = "general" | "branding" | "share";
 
@@ -35,8 +44,64 @@ const TOGGLES: { key: ToggleKey; label: string; sub: string }[] = [
   { key: "showBranding", label: "Powered by Flipbook", sub: "Lifetime plan can hide it" },
 ];
 
-const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const DESCRIPTION_MAX = 160;
+const SAVE_DELAY = 700;
+const SLUG_CHECK_DELAY = 350;
+
+type SaveState = { status: "idle" | "saving" | "saved" | "error"; error?: string };
+
+/**
+ * Settings save as you edit (the design has no save button). Changes made within
+ * SAVE_DELAY are batched into one server action call.
+ */
+function useSettingsAutosave(id: string) {
+  const [state, setState] = useState<SaveState>({ status: "idle" });
+  const pending = useRef<FlipbookPatch>({});
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const flush = async () => {
+    const patch = pending.current;
+    pending.current = {};
+    const result = await updateFlipbookAction(id, patch);
+    setState(result.ok ? { status: "saved" } : { status: "error", error: result.error });
+  };
+
+  const queue = (patch: FlipbookPatch) => {
+    pending.current = { ...pending.current, ...patch };
+    setState({ status: "saving" });
+    clearTimeout(timer.current);
+    timer.current = setTimeout(flush, SAVE_DELAY);
+  };
+
+  // Leaving the page mid-debounce still sends the last edit.
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current);
+      if (Object.keys(pending.current).length > 0) void updateFlipbookAction(id, pending.current);
+    },
+    [id],
+  );
+
+  return { state, setState, queue };
+}
+
+function SaveIndicator({ state }: { state: SaveState }) {
+  if (state.status === "idle") return null;
+  const label = state.status === "saving" ? "Saving…" : state.status === "saved" ? "Saved" : state.error;
+  return (
+    <span
+      aria-live="polite"
+      className={cn("ml-auto flex items-center gap-1.5 self-center pl-3 text-[11.5px] whitespace-nowrap", state.status === "error" ? "text-danger" : "text-muted")}
+    >
+      <span
+        className={cn(
+          "size-1.5 shrink-0 rounded-full",
+          state.status === "saving" ? "bg-warning" : state.status === "saved" ? "bg-success" : "bg-danger",
+        )}
+      />
+      {label}
+    </span>
+  );
+}
 
 const fieldClass = "w-full rounded-[9px] border border-line bg-surface px-3 py-2.5 text-[13px] outline-none focus:border-ink";
 
@@ -141,28 +206,91 @@ export function FlipbookSettings({
   publicUrlBase,
   embedUrl,
   canRemoveBranding,
+  canUseCustomSlug,
   initialTab,
 }: {
-  flipbook: { id: string; title: string; slug: string; description: string; visibility: Visibility; settings: Settings };
+  flipbook: {
+    id: string;
+    title: string;
+    slug: string;
+    description: string;
+    visibility: Visibility;
+    status: FlipbookStatus;
+    settings: Settings;
+  };
   previewPages: Page[];
   pageCount: number;
   /** e.g. "https://flipbook.co" */
   publicUrlBase: string;
   embedUrl: string;
   canRemoveBranding: boolean;
+  canUseCustomSlug: boolean;
   initialTab: SettingsTab;
 }) {
   const [tab, setTab] = useState(initialTab);
   const [title, setTitle] = useState(flipbook.title);
   const [slug, setSlug] = useState(flipbook.slug);
+  const [savedSlug, setSavedSlug] = useState(flipbook.slug);
+  const [slugCheck, setSlugCheck] = useState<{ slug: string; problem: string | null } | null>(null);
   const [description, setDescription] = useState(flipbook.description);
   const [visibility, setVisibility] = useState(flipbook.visibility);
   const [settings, setSettings] = useState(flipbook.settings);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [busy, setBusy] = useState<"publish" | "delete" | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const { copied, copy } = useCopy();
+  const autosave = useSettingsAutosave(flipbook.id);
+  const slugTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const host = new URL(publicUrlBase).host;
-  const publicUrl = `${publicUrlBase}/f/${slug}`;
-  const slugValid = SLUG_PATTERN.test(slug);
+  const publicUrl = `${publicUrlBase}/f/${savedSlug}`;
+  // Local format problems show instantly; availability comes from the server check.
+  const slugLocalProblem = slug === savedSlug ? null : slugProblem(slug);
+  const slugServerProblem = slugCheck?.slug === slug ? slugCheck.problem : null;
+  const slugMessage = slugLocalProblem ?? slugServerProblem;
+  const slugChecked = slug === savedSlug || (slugCheck?.slug === slug && !slugCheck.problem);
+
+  const changeSlug = (value: string) => {
+    const next = value.toLowerCase();
+    setSlug(next);
+    clearTimeout(slugTimer.current);
+    if (next === savedSlug || slugProblem(next)) return;
+    slugTimer.current = setTimeout(async () => {
+      const result = await checkSlugAction(flipbook.id, next);
+      setSlugCheck({ slug: next, problem: result.problem });
+    }, SLUG_CHECK_DELAY);
+  };
+
+  const commitSlug = async () => {
+    if (slug === savedSlug || slugMessage) return;
+    autosave.setState({ status: "saving" });
+    const result = await updateSlugAction(flipbook.id, slug);
+    if (result.ok) {
+      setSavedSlug(slug);
+      autosave.setState({ status: "saved" });
+    } else {
+      setSlugCheck({ slug, problem: result.error });
+      autosave.setState({ status: "error", error: result.error });
+    }
+  };
+
+  const publish = async () => {
+    setBusy("publish");
+    setActionError(null);
+    const result = await publishFlipbookAction(flipbook.id);
+    // On success the action redirects to the public page.
+    if (result && !result.ok) setActionError(result.error);
+    setBusy(null);
+  };
+
+  const remove = async () => {
+    setBusy("delete");
+    const result = await deleteFlipbookAction(flipbook.id, { redirectTo: "/dashboard/flipbooks" });
+    if (result && !result.ok) {
+      setActionError(result.error);
+      setBusy(null);
+    }
+  };
   const embedCode = `<iframe\n  src="${embedUrl}"\n  width="100%"\n  height="600"\n  frameborder="0"\n  loading="lazy">\n</iframe>`;
   const shareText = encodeURIComponent(title);
   const shareUrl = encodeURIComponent(publicUrl);
@@ -177,7 +305,11 @@ export function FlipbookSettings({
     setTab(next);
     window.history.replaceState(null, "", `?tab=${next}`);
   };
-  const update = (patch: Partial<Settings>) => setSettings((s) => ({ ...s, ...patch }));
+  const update = (patch: Partial<Settings>) => {
+    const next = { ...settings, ...patch };
+    setSettings(next);
+    autosave.queue({ settings: next });
+  };
 
   return (
     <div className="mx-auto flex max-w-[1080px] flex-col gap-[18px]">
@@ -187,12 +319,23 @@ export function FlipbookSettings({
           <h1 className="mt-1.5 font-serif text-[30px] leading-[1.1] tracking-[-0.5px]">{title || "Untitled flipbook"}</h1>
         </div>
         <div className="ml-auto flex gap-2">
-          <ButtonLink href={`/f/${flipbook.slug}`} variant="secondary">
+          <ButtonLink href={`/f/${savedSlug}`} variant="secondary">
             Preview
           </ButtonLink>
-          <Button onClick={() => selectTab("share")}>Share</Button>
+          {flipbook.status === "PUBLISHED" || pageCount === 0 ? (
+            <Button onClick={() => selectTab("share")}>Share</Button>
+          ) : (
+            <Button variant="accent" onClick={publish} disabled={busy !== null}>
+              {busy === "publish" ? "Publishing…" : "Publish"}
+            </Button>
+          )}
         </div>
       </div>
+      {actionError && (
+        <p role="alert" className="-mt-2 text-[12.5px] text-danger">
+          {actionError}
+        </p>
+      )}
 
       <div className="flex gap-1 overflow-x-auto border-b border-line" role="tablist">
         {TABS.map((t) => (
@@ -209,6 +352,7 @@ export function FlipbookSettings({
             {t.label}
           </button>
         ))}
+        <SaveIndicator state={autosave.state} />
       </div>
 
       <div className="flex flex-wrap items-start gap-[18px]">
@@ -218,7 +362,17 @@ export function FlipbookSettings({
               <div className="flex flex-col gap-4 rounded-2xl border border-line bg-surface px-[22px] py-5">
                 <label className="block">
                   <div className="mb-[7px] text-[12.5px] font-semibold">Title</div>
-                  <input value={title} onChange={(e) => setTitle(e.target.value)} className={fieldClass} />
+                  <input
+                    value={title}
+                    maxLength={120}
+                    aria-invalid={!title.trim() || undefined}
+                    onChange={(e) => {
+                      setTitle(e.target.value);
+                      if (e.target.value.trim()) autosave.queue({ title: e.target.value.trim() });
+                    }}
+                    className={cn(fieldClass, "aria-invalid:border-danger")}
+                  />
+                  {!title.trim() && <p className="mt-1.5 text-[11px] text-danger">Give it a title.</p>}
                 </label>
                 <div>
                   <label htmlFor="slug" className="mb-[7px] block text-[12.5px] font-semibold">
@@ -231,17 +385,27 @@ export function FlipbookSettings({
                     <input
                       id="slug"
                       value={slug}
-                      onChange={(e) => setSlug(e.target.value.toLowerCase())}
-                      className="min-w-0 flex-1 bg-transparent py-2.5 pr-3 pl-0.5 font-mono text-[12.5px] font-medium outline-none"
+                      disabled={!canUseCustomSlug}
+                      maxLength={80}
+                      onChange={(e) => changeSlug(e.target.value)}
+                      onBlur={commitSlug}
+                      onKeyDown={(e) => e.key === "Enter" && commitSlug()}
+                      className="min-w-0 flex-1 bg-transparent py-2.5 pr-3 pl-0.5 font-mono text-[12.5px] font-medium outline-none disabled:text-muted"
                     />
-                    <span className={cn("px-3 text-[11px] whitespace-nowrap", slugValid ? "text-success" : "text-danger")}>
-                      {slugValid ? "Available" : "Invalid"}
+                    <span
+                      className={cn(
+                        "px-3 text-[11px] whitespace-nowrap",
+                        slugMessage ? "text-danger" : slugChecked ? "text-success" : "text-muted-3",
+                      )}
+                    >
+                      {slugMessage ? (slugServerProblem === "That address is taken." ? "Taken" : "Invalid") : slugChecked ? "Available" : "Checking…"}
                     </span>
                   </div>
-                  <p className="mt-1.5 text-[11px] text-muted-2">
-                    {slugValid
-                      ? "Changing the slug keeps a redirect from the old URL for 30 days."
-                      : "Use lowercase letters, numbers and single hyphens."}
+                  <p className={cn("mt-1.5 text-[11px]", slugMessage ? "text-danger" : "text-muted-2")}>
+                    {slugMessage ??
+                      (canUseCustomSlug
+                        ? "Changing the address breaks links you have already shared."
+                        : "Custom addresses are part of the Lifetime Deal.")}
                   </p>
                 </div>
                 <label className="block">
@@ -251,7 +415,10 @@ export function FlipbookSettings({
                   <textarea
                     value={description}
                     maxLength={DESCRIPTION_MAX}
-                    onChange={(e) => setDescription(e.target.value)}
+                    onChange={(e) => {
+                      setDescription(e.target.value);
+                      autosave.queue({ description: e.target.value });
+                    }}
                     className={cn(fieldClass, "min-h-16 resize-y leading-normal text-ink-70")}
                   />
                   <div className="mt-1.5 font-mono text-[10.5px] font-medium text-muted-3">
@@ -266,7 +433,10 @@ export function FlipbookSettings({
                         key={v.value}
                         role="radio"
                         aria-checked={visibility === v.value}
-                        onClick={() => setVisibility(v.value)}
+                        onClick={() => {
+                          setVisibility(v.value);
+                          autosave.queue({ visibility: v.value });
+                        }}
                         className={cn(
                           "flex min-w-0 flex-[1_1_150px] flex-col gap-[3px] rounded-[10px] border-[1.5px] px-[13px] py-[11px] text-left",
                           visibility === v.value ? "border-ink bg-surface-selected" : "border-line bg-surface hover:border-muted-3",
@@ -284,7 +454,20 @@ export function FlipbookSettings({
                   <div className="text-[12.5px] font-semibold text-danger">Delete flipbook</div>
                   <div className="mt-[3px] text-[11.5px] text-muted-2">Removes pages, assets and analytics. Cannot be undone.</div>
                 </div>
-                <Button variant="danger">Delete</Button>
+                {confirmDelete ? (
+                  <div className="flex gap-2">
+                    <Button variant="secondary" onClick={() => setConfirmDelete(false)} disabled={busy === "delete"}>
+                      Cancel
+                    </Button>
+                    <Button variant="danger" className="border-danger bg-danger text-white hover:bg-danger/90" onClick={remove} disabled={busy === "delete"}>
+                      {busy === "delete" ? "Deleting…" : "Confirm delete"}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button variant="danger" onClick={() => setConfirmDelete(true)}>
+                    Delete
+                  </Button>
+                )}
               </div>
             </>
           )}

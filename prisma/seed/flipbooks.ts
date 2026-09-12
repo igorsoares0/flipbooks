@@ -1,19 +1,12 @@
-import type { Flipbook, FlipbookSettings, TextRun } from "@/lib/types";
+import { DEFAULT_SETTINGS } from "@/lib/flipbook-rules";
+import type { Flipbook, TextRun } from "@/lib/types";
+
+// Demo workspace seeded for the demo user: the dashboard rows from the design handoff
+// plus six older books, so the sidebar count (12) matches the design.
 
 const now = Date.now();
 const minutesAgo = (m: number) => new Date(now - m * 60_000).toISOString();
 const hoursAgo = (h: number) => minutesAgo(h * 60);
-
-export const DEFAULT_SETTINGS: FlipbookSettings = {
-  backgroundColor: "#17150F",
-  accentColor: "#1B45D6",
-  showBranding: true,
-  showLogo: true,
-  showShare: true,
-  showDownload: false,
-  showFullscreen: true,
-  showThumbnails: true,
-};
 
 type MockFlipbook = Omit<Flipbook, "userId" | "settings" | "createdAt"> & {
   cover?: { runs: TextRun[]; caption: string };
@@ -223,9 +216,10 @@ const rows: MockFlipbook[] = [
   },
 ];
 
-export const mockFlipbooks: (Flipbook & { cover?: MockFlipbook["cover"] })[] = rows.map((row) => ({
+export type DemoFlipbook = Omit<Flipbook, "userId"> & { cover?: MockFlipbook["cover"] };
+
+export const demoFlipbooks: DemoFlipbook[] = rows.map((row) => ({
   ...row,
-  userId: "usr_marina",
   settings: DEFAULT_SETTINGS,
   createdAt: row.publishedAt ?? row.updatedAt,
 }));

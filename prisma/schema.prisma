@@ -1,0 +1,279 @@
+// Data model from docs/flipbook-saas-spec-driven-development.md §31.
+// User/Session/Account/Verification follow Better Auth's core schema.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  // CommonJS so Playwright (which loads specs as CJS) can import the client in e2e fixtures.
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Auth (Better Auth) ────────────────────────────────────────────────────
+
+model User {
+  id            String         @id
+  name          String
+  email         String         @unique
+  emailVerified Boolean        @default(false)
+  image         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  flipbooks     Flipbook[]
+  assets        Asset[]
+  subscriptions Subscription[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verifications")
+}
+
+// ─── Flipbooks ─────────────────────────────────────────────────────────────
+
+enum FlipbookType {
+  PDF
+  CANVAS
+}
+
+enum FlipbookStatus {
+  DRAFT
+  PROCESSING
+  READY
+  PUBLISHED
+  FAILED
+  ARCHIVED
+}
+
+enum Visibility {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+}
+
+model Flipbook {
+  id             String           @id @default(cuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  slug           String           @unique
+  type           FlipbookType
+  status         FlipbookStatus   @default(DRAFT)
+  visibility     Visibility       @default(PUBLIC)
+  description    String           @default("")
+  /// Branding and viewer options (FlipbookSettings in src/lib/types.ts).
+  settings       Json
+  thumbnailKey   String?
+  /// Placeholder cover gradient until rendered thumbnails exist in R2.
+  thumbnailTint  String[]
+  originalPdfKey String?
+  /// Size of the original PDF in bytes.
+  fileSize       Int?
+  error          String?
+  pageCount      Int              @default(0)
+  /// Denormalized view counter; the analytics phase keeps it in sync with events.
+  viewCount      Int              @default(0)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  publishedAt    DateTime?
+  pages          Page[]
+  assets         Asset[]
+  events         AnalyticsEvent[]
+  jobs           ProcessingJob[]
+
+  @@index([userId, updatedAt])
+  @@map("flipbooks")
+}
+
+model Page {
+  id                 String           @id @default(cuid())
+  flipbookId         String
+  flipbook           Flipbook         @relation(fields: [flipbookId], references: [id], onDelete: Cascade)
+  pageNumber         Int
+  width              Int
+  height             Int
+  background         Json
+  backgroundImageKey String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  elements           Element[]
+  events             AnalyticsEvent[]
+
+  @@index([flipbookId, pageNumber])
+  @@map("pages")
+}
+
+enum ElementType {
+  TEXT
+  IMAGE
+  SHAPE
+}
+
+model Element {
+  id         String      @id @default(cuid())
+  pageId     String
+  page       Page        @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  type       ElementType
+  name       String
+  x          Float
+  y          Float
+  width      Float
+  height     Float
+  rotation   Float       @default(0)
+  opacity    Float       @default(1)
+  zIndex     Int
+  locked     Boolean     @default(false)
+  visible    Boolean     @default(true)
+  properties Json
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([pageId])
+  @@map("elements")
+}
+
+// ─── Later phases (schema only for now) ────────────────────────────────────
+
+model Asset {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  flipbookId String?
+  flipbook   Flipbook? @relation(fields: [flipbookId], references: [id], onDelete: SetNull)
+  type       String
+  key        String    @unique
+  filename   String
+  mimeType   String
+  size       Int
+  width      Int?
+  height     Int?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("assets")
+}
+
+enum AnalyticsEventType {
+  VIEW
+  PAGE_VIEW
+  PAGE_CHANGE
+  DOWNLOAD
+  SHARE
+}
+
+model AnalyticsEvent {
+  id         String             @id @default(cuid())
+  flipbookId String
+  flipbook   Flipbook           @relation(fields: [flipbookId], references: [id], onDelete: Cascade)
+  pageId     String?
+  page       Page?              @relation(fields: [pageId], references: [id], onDelete: SetNull)
+  type       AnalyticsEventType
+  sessionId  String
+  country    String?
+  device     String?
+  createdAt  DateTime           @default(now())
+
+  @@index([flipbookId, createdAt])
+  @@map("analytics_events")
+}
+
+enum Plan {
+  FREE
+  LIFETIME
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  REFUNDED
+  CANCELED
+}
+
+model Subscription {
+  id                  String             @id @default(cuid())
+  userId              String
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paddleCustomerId    String?
+  paddleTransactionId String?            @unique
+  status              SubscriptionStatus @default(ACTIVE)
+  plan                Plan
+  /// Null for the Lifetime Deal.
+  expiresAt           DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([userId])
+  @@map("subscriptions")
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+model ProcessingJob {
+  id          String    @id @default(cuid())
+  flipbookId  String
+  flipbook    Flipbook  @relation(fields: [flipbookId], references: [id], onDelete: Cascade)
+  type        String
+  status      JobStatus @default(PENDING)
+  attempts    Int       @default(0)
+  payload     Json
+  error       String?
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  @@index([status, createdAt])
+  @@map("processing_jobs")
+}

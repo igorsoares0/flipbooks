@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Page, TextElement } from "@/lib/types";
-import { createEditorStore } from "./editor-store";
+import { AUTOSAVE_DELAY, createEditorStore, type SaveDocument } from "./editor-store";
 
 function heading(pageId: string): TextElement {
   return {
@@ -44,7 +44,8 @@ function page(n: number, withHeading = false): Page {
   };
 }
 
-const setup = () => createEditorStore([page(1, true), page(2)]);
+const okSave: SaveDocument = async () => ({ ok: true });
+const setup = (save: SaveDocument = okSave) => createEditorStore([page(1, true), page(2)], { save });
 const active = (store: ReturnType<typeof setup>) => {
   const s = store.getState();
   return s.pages.find((p) => p.id === s.activePageId)!;
@@ -67,7 +68,7 @@ describe("editor store", () => {
     expect(store.getState().selectedId).toBeNull();
   });
 
-  it("adds a page at the end, selects it, and flips the save indicator", () => {
+  it("adds a page at the end, selects it, and flips the save indicator", async () => {
     const store = setup();
     store.getState().addPage();
     const { pages, activePageId, saveStatus } = store.getState();
@@ -75,7 +76,7 @@ describe("editor store", () => {
     expect(pages[2].pageNumber).toBe(3);
     expect(activePageId).toBe(pages[2].id);
     expect(saveStatus).toBe("saving");
-    vi.advanceTimersByTime(900);
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY);
     expect(store.getState().saveStatus).toBe("saved");
   });
 
@@ -165,5 +166,83 @@ describe("editor store", () => {
     const { pages, activePageId } = store.getState();
     expect(pages).toHaveLength(2);
     expect(pages.some((p) => p.id === activePageId)).toBe(true);
+  });
+});
+
+describe("editor autosave", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("batches quick edits into one save of the latest document", async () => {
+    const save = vi.fn<SaveDocument>(async () => ({ ok: true }));
+    const store = setup(save);
+    store.getState().addText("heading");
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY / 2);
+    store.getState().addShape("rect");
+    expect(store.getState().dirty).toBe(true);
+    expect(save).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save.mock.calls[0][0][0].elements).toHaveLength(3);
+    expect(store.getState()).toMatchObject({ saveStatus: "saved", dirty: false });
+  });
+
+  it("reports failures and saves again on retry", async () => {
+    const save = vi
+      .fn<SaveDocument>()
+      .mockResolvedValueOnce({ ok: false, error: "Network down" })
+      .mockResolvedValueOnce({ ok: true });
+    const store = setup(save);
+    store.getState().addPage();
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY);
+    expect(store.getState()).toMatchObject({ saveStatus: "error", saveError: "Network down", dirty: true });
+
+    store.getState().retrySave();
+    await vi.waitFor(() => expect(store.getState().saveStatus).toBe("saved"));
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(store.getState().dirty).toBe(false);
+  });
+
+  it("never marks newer edits as saved when an older save finishes late", async () => {
+    let finishFirst: (value: { ok: true }) => void = () => {};
+    const save = vi
+      .fn<SaveDocument>()
+      .mockImplementationOnce(() => new Promise((resolve) => (finishFirst = resolve)))
+      .mockResolvedValue({ ok: true });
+    const store = setup(save);
+
+    store.getState().addPage();
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY); // first save in flight
+    store.getState().addPage(); // newer edit while it is pending
+    finishFirst({ ok: true });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(store.getState()).toMatchObject({ saveStatus: "saving", dirty: true });
+
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.calls[1][0]).toHaveLength(4);
+    expect(store.getState().saveStatus).toBe("saved");
+  });
+
+  it("saves after undo and redo too", async () => {
+    const save = vi.fn<SaveDocument>(async () => ({ ok: true }));
+    const store = setup(save);
+    store.getState().addPage();
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY);
+    store.getState().undo();
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.calls[1][0]).toHaveLength(2);
+  });
+
+  it("does not save when nothing changed", async () => {
+    const save = vi.fn<SaveDocument>(async () => ({ ok: true }));
+    const store = setup(save);
+    store.getState().select(null);
+    store.getState().setActivePage("p2");
+    store.getState().selectTool("shapes");
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY * 2);
+    expect(save).not.toHaveBeenCalled();
   });
 });

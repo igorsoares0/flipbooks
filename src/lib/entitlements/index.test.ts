@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_SETTINGS } from "@/lib/flipbook-rules";
 import { featureList, resolveEntitlements } from ".";
+import { patchViolation } from "./policy";
+
+describe("patchViolation", () => {
+  it("only lets paid plans hide the Flipbook badge", () => {
+    const hideBadge = { settings: { ...DEFAULT_SETTINGS, showBranding: false } };
+    expect(patchViolation(resolveEntitlements("FREE"), hideBadge)).toMatch(/Lifetime Deal/);
+    expect(patchViolation(resolveEntitlements("LIFETIME"), hideBadge)).toBeNull();
+    expect(patchViolation(resolveEntitlements("FREE"), { settings: DEFAULT_SETTINGS })).toBeNull();
+    expect(patchViolation(resolveEntitlements("FREE"), { title: "x" })).toBeNull();
+  });
+});
 
 describe("entitlements", () => {
   it("gives the Lifetime Deal the limits sold on the pricing page", () => {

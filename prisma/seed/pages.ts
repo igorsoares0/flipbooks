@@ -1,16 +1,6 @@
-import type {
-  Flipbook,
-  ImageElement,
-  Page,
-  PageElement,
-  ShapeElement,
-  TextElement,
-  TextRun,
-} from "@/lib/types";
-
-// Every mock page uses the canvas editor's artboard size (roughly 3:4).
-export const PAGE_WIDTH = 520;
-export const PAGE_HEIGHT = 690;
+import { PAGE_HEIGHT, PAGE_WIDTH } from "@/lib/flipbook-rules";
+import type { ImageElement, Page, PageElement, ShapeElement, TextElement, TextRun } from "@/lib/types";
+import type { DemoFlipbook } from "./flipbooks";
 
 const INK = "#17150F";
 const MUTED = "#6E6A5E";
@@ -182,7 +172,7 @@ function imageElements(pageId: string, pageNumber: number): PageElement[] {
   ];
 }
 
-type MockSource = Flipbook & { cover?: { runs: TextRun[]; caption: string } };
+type MockSource = Pick<DemoFlipbook, "id" | "title" | "description" | "pageCount" | "settings" | "cover">;
 
 /** Deterministic demo pages: a cover, then alternating text and image pages. */
 export function buildMockPages(flipbook: MockSource): Page[] {

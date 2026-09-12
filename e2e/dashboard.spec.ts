@@ -1,18 +1,24 @@
-import { expect, test } from "./fixtures";
+import { cloneFlipbook } from "./db";
+import { expect, signInAsNewUser, test } from "./fixtures";
+
+const recentTable = (page: import("@playwright/test").Page) =>
+  page.locator("section", { has: page.getByRole("heading", { name: "Recent flipbooks" }) });
+
+// Read-only checks run as the seeded demo user; anything that writes uses a fresh account.
 
 test.describe("dashboard", () => {
   test("shows stats and the six most recent flipbooks", async ({ page }) => {
     await page.goto("/dashboard");
     await expect(page.getByText("48.2k")).toBeVisible();
-    const table = page.locator("section", { has: page.getByRole("heading", { name: "Recent flipbooks" }) });
-    await expect(table.getByRole("link", { name: /^Settings for / })).toHaveCount(6);
+    await expect(recentTable(page).getByRole("button", { name: /^More actions for / })).toHaveCount(6);
+    await expect(page.getByRole("link", { name: "Flipbooks" })).toContainText("12");
   });
 
   test("filters by type", async ({ page }) => {
     await page.goto("/dashboard");
     await page.getByRole("button", { name: "Canvas", exact: true }).click();
-    const table = page.locator("section", { has: page.getByRole("heading", { name: "Recent flipbooks" }) });
-    await expect(table.getByRole("link", { name: /^Settings for / })).toHaveCount(2);
+    const table = recentTable(page);
+    await expect(table.getByRole("button", { name: /^More actions for / })).toHaveCount(2);
     await expect(table.getByText("Brand Guidelines v4")).toBeVisible();
     await expect(table.getByText("Summer Catalog 2026")).toBeHidden();
   });
@@ -26,11 +32,17 @@ test.describe("dashboard", () => {
 
   test("row actions open the editor and the viewer", async ({ page }) => {
     await page.goto("/dashboard");
+    const row = recentTable(page).locator(":scope > div").filter({ hasText: "Summer Catalog 2026" });
+    await expect(row.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/dashboard/flipbooks/fb_8Kd2/editor");
     await page.getByRole("link", { name: "Preview Summer Catalog 2026" }).click();
     await expect(page).toHaveURL(/\/f\/summer-catalog/);
-    await page.goBack();
-    await page.getByRole("link", { name: "Edit" }).first().click();
-    await expect(page).toHaveURL(/\/dashboard\/flipbooks\/fb_8Kd2\/editor$/);
+  });
+
+  test("processing and failed books can't be opened yet", async ({ page }) => {
+    await page.goto("/dashboard");
+    const row = recentTable(page).locator(":scope > div").filter({ hasText: "Annual Report 2026" });
+    await expect(row.getByText("Processing")).toBeVisible();
+    await expect(row.getByRole("link", { name: "Edit" })).toHaveCount(0);
   });
 
   test("topbar search filters the flipbook list", async ({ page }) => {
@@ -46,8 +58,9 @@ test.describe("dashboard", () => {
     await expect(page.getByText("No flipbooks match that search.")).toBeVisible();
   });
 
-  test("sidebar highlights the current section", async ({ page }) => {
+  test("sidebar shows the signed-in account and current section", async ({ page }) => {
     await page.goto("/dashboard/billing");
+    await expect(page.getByText("marina@studio.co")).toBeVisible();
     await expect(page.getByRole("link", { name: "Billing" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current", "page");
   });
@@ -64,25 +77,55 @@ test.describe("analytics", () => {
   });
 
   test("unpublished books have no analytics yet", async ({ page }) => {
-    await page.goto("/dashboard/flipbooks/fb_9Rw4/analytics");
-    await expect(page.getByText("No analytics for Lookbook SS26 yet")).toBeVisible();
+    await page.goto("/dashboard/flipbooks/fb_2Hc6/analytics");
+    await expect(page.getByText("No analytics for Investor Deck yet")).toBeVisible();
   });
 });
 
-test.describe("create", () => {
-  test("templates open an unsaved draft with the template's pages", async ({ page }) => {
+test.describe("creating flipbooks", () => {
+  test("a template creates a saved draft with the template's pages", async ({ page }) => {
+    await signInAsNewUser(page);
     await page.goto("/dashboard/flipbooks/new");
     await page.getByRole("tab", { name: "Business" }).click();
-    await page.getByRole("link", { name: /Menu/ }).click();
-    await expect(page).toHaveURL(/\/dashboard\/flipbooks\/draft\/editor\?template=tpl_menu/);
+    await page.getByRole("button", { name: "Use the Menu template" }).click();
+    await expect(page).toHaveURL(/\/dashboard\/flipbooks\/[^/]+\/editor$/);
     await expect(page.getByRole("button", { name: /^Page \d+$/ })).toHaveCount(8);
+
+    await page.goto("/dashboard");
+    await expect(page.getByText("Menu (from template)")).toBeVisible();
   });
 
-  test("open editor starts from a blank page", async ({ page }) => {
+  test("open editor starts from one blank page", async ({ page }) => {
+    await signInAsNewUser(page);
     await page.goto("/dashboard/flipbooks/new");
-    await page.getByRole("link", { name: "Open editor" }).click();
-    // exact: Next's route announcer also reads out "Editing Untitled flipbook".
-    await expect(page.getByText("Untitled flipbook", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Open editor" }).click();
+    await expect(page.getByRole("link", { name: "Untitled flipbook", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /^Page \d+$/ })).toHaveCount(1);
+  });
+
+  test("the free plan is sent to the upgrade page instead", async ({ page }) => {
+    await signInAsNewUser(page, { plan: "FREE" });
+    await page.goto("/dashboard/flipbooks/new");
+    await page.getByRole("button", { name: "Open editor" }).click();
+    await expect(page).toHaveURL(/\/dashboard\/billing\?upgrade=canvas$/);
+    await expect(page.getByText("The canvas editor is part of the Lifetime Deal.")).toBeVisible();
+  });
+});
+
+test.describe("row menu", () => {
+  test("duplicates and deletes a flipbook", async ({ page }) => {
+    const user = await signInAsNewUser(page);
+    await cloneFlipbook("fb_2Hc6", user.id);
+    await page.goto("/dashboard/flipbooks");
+
+    await page.getByRole("button", { name: "More actions for Investor Deck" }).click();
+    await page.getByRole("menuitem", { name: "Duplicate" }).click();
+    await expect(page.getByText("Investor Deck (copy)")).toBeVisible();
+
+    await page.getByRole("button", { name: "More actions for Investor Deck (copy)" }).click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
+    await page.getByRole("menuitem", { name: "Confirm delete" }).click();
+    await expect(page.getByText("Investor Deck (copy)")).toBeHidden();
+    await expect(page.getByText("Investor Deck", { exact: true })).toBeVisible();
   });
 });

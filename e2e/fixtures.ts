@@ -1,4 +1,5 @@
-import { test as base, expect } from "@playwright/test";
+import { test as base, expect, type Page } from "@playwright/test";
+import { createTestUser, type TestUser } from "./db";
 
 type Fixtures = {
   /** Console errors a test expects, e.g. the browser's own log for a 404 document. */
@@ -32,5 +33,22 @@ export const test = base.extend<Fixtures>({
     { auto: true },
   ],
 });
+
+/** Signed-out browser state, for auth and public-page specs. */
+export const signedOut = { storageState: { cookies: [], origins: [] } };
+
+/** Signs a page's context in through the auth API (cookies are shared with the page). */
+export async function signIn(page: Page, user: Pick<TestUser, "email" | "password">) {
+  const response = await page.request.post("/api/auth/sign-in/email", { data: { email: user.email, password: user.password } });
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
+/** A fresh, isolated account signed in on this page. Use for any spec that writes data. */
+export async function signInAsNewUser(page: Page, options?: Parameters<typeof createTestUser>[0]) {
+  await page.context().clearCookies();
+  const user = await createTestUser(options);
+  await signIn(page, user);
+  return user;
+}
 
 export { expect };

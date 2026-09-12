@@ -1,8 +1,9 @@
 "use client";
 
-import { Ellipsis, Eye } from "lucide-react";
+import { Eye } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { RowMenu } from "@/components/dashboard/row-menu";
 import { StatusBadge, TypeBadge } from "@/components/ui/badges";
 import { ButtonLink, buttonClasses } from "@/components/ui/button";
 import type { FlipbookStatus, FlipbookType } from "@/lib/types";
@@ -140,9 +141,7 @@ export function FlipbookTable({
                 </span>
               </>
             )}
-            <Link href={`/dashboard/flipbooks/${row.id}/settings`} className={iconButton} aria-label={`Settings for ${row.title}`}>
-              <Ellipsis className="size-3.5" strokeWidth={2} />
-            </Link>
+            <RowMenu id={row.id} title={row.title} published={row.status === "PUBLISHED"} />
           </div>
         </div>
       ))}

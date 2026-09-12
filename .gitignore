@@ -16,6 +16,7 @@
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+/e2e/.auth/
 
 # next.js
 /.next/
@@ -36,6 +37,14 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# prisma client (generated on install)
+/src/generated/
+
+# local email outboxes (dev and e2e)
+/.emails/
+/.emails-test/
 
 # vercel
 .vercel

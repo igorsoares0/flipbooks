@@ -150,7 +150,8 @@ export interface Usage {
 export interface Billing {
   plan: Plan;
   provider: "paddle";
-  purchasedAt: string;
+  /** Null on the free plan. */
+  purchasedAt: string | null;
   expiresAt: string | null;
   entitlements: Entitlements;
   usage: Usage;

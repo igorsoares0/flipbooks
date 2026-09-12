@@ -1,8 +1,15 @@
 // @vitest-environment jsdom
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { deleteFlipbookAction, duplicateFlipbookAction } from "@/lib/actions/flipbooks";
 import { FlipbookTable, type FlipbookRow } from "./flipbook-table";
+
+// In the browser Next swaps server actions for network stubs; tests do the same.
+vi.mock("@/lib/actions/flipbooks", () => ({
+  duplicateFlipbookAction: vi.fn(async () => ({ ok: true })),
+  deleteFlipbookAction: vi.fn(async () => ({ ok: true })),
+}));
 
 const row = (overrides: Partial<FlipbookRow>): FlipbookRow => ({
   id: "fb_1",
@@ -76,5 +83,36 @@ describe("FlipbookTable", () => {
     await user.click(screen.getByRole("button", { name: "Canvas" }));
     const table = screen.getByRole("heading", { name: "Recent flipbooks" }).closest("section")!;
     expect(within(table).getByText("No canvas flipbooks yet.")).toBeTruthy();
+  });
+});
+
+describe("row menu", () => {
+  it("duplicates from the menu and closes it", async () => {
+    const user = userEvent.setup();
+    render(<FlipbookTable title="Recent flipbooks" rows={rows} />);
+    await user.click(screen.getByRole("button", { name: "More actions for Summer Catalog" }));
+    const menu = screen.getByRole("menu");
+    expect(within(menu).getByRole("menuitem", { name: "Settings" }).getAttribute("href")).toBe("/dashboard/flipbooks/fb_a/settings");
+    await user.click(within(menu).getByRole("menuitem", { name: "Duplicate" }));
+    expect(duplicateFlipbookAction).toHaveBeenCalledWith("fb_a");
+    await vi.waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+  });
+
+  it("asks for confirmation before deleting", async () => {
+    const user = userEvent.setup();
+    render(<FlipbookTable title="Recent flipbooks" rows={rows} />);
+    await user.click(screen.getByRole("button", { name: "More actions for Brand Guidelines" }));
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+    expect(deleteFlipbookAction).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("menuitem", { name: "Confirm delete" }));
+    expect(deleteFlipbookAction).toHaveBeenCalledWith("fb_b");
+  });
+
+  it("closes on Escape", async () => {
+    const user = userEvent.setup();
+    render(<FlipbookTable title="Recent flipbooks" rows={rows} />);
+    await user.click(screen.getByRole("button", { name: "More actions for Summer Catalog" }));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 });
