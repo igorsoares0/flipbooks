@@ -86,6 +86,8 @@ enum FlipbookType {
 }
 
 enum FlipbookStatus {
+  /// Row created; the browser is still uploading the PDF.
+  UPLOADING
   DRAFT
   PROCESSING
   READY
@@ -270,10 +272,12 @@ model ProcessingJob {
   attempts    Int       @default(0)
   payload     Json
   error       String?
+  /// Not picked up before this time (retry backoff).
+  runAfter    DateTime  @default(now())
   createdAt   DateTime  @default(now())
   startedAt   DateTime?
   completedAt DateTime?
 
-  @@index([status, createdAt])
+  @@index([status, runAfter])
   @@map("processing_jobs")
 }

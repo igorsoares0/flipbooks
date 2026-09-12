@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { PageCanvas } from "@/components/flipbook/page-canvas";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -11,8 +12,9 @@ import {
   updateFlipbookAction,
   updateSlugAction,
 } from "@/lib/actions/flipbooks";
+import { retryProcessingAction } from "@/lib/actions/uploads";
 import { DESCRIPTION_MAX, slugProblem } from "@/lib/flipbook-rules";
-import type { FlipbookStatus, FlipbookSettings as Settings, Page, Visibility } from "@/lib/types";
+import type { FlipbookStatus, FlipbookType, FlipbookSettings as Settings, Page, Visibility } from "@/lib/types";
 import { cn, isDarkColor } from "@/lib/utils";
 import type { FlipbookPatch } from "@/lib/validation";
 
@@ -216,6 +218,8 @@ export function FlipbookSettings({
     description: string;
     visibility: Visibility;
     status: FlipbookStatus;
+    type: FlipbookType;
+    error: string | null;
     settings: Settings;
   };
   previewPages: Page[];
@@ -283,6 +287,16 @@ export function FlipbookSettings({
     setBusy(null);
   };
 
+  const router = useRouter();
+  const [retrying, setRetrying] = useState(false);
+  const retry = async () => {
+    setRetrying(true);
+    const result = await retryProcessingAction(flipbook.id);
+    if (!result.ok) setActionError(result.error);
+    setRetrying(false);
+    router.refresh();
+  };
+
   const remove = async () => {
     setBusy("delete");
     const result = await deleteFlipbookAction(flipbook.id, { redirectTo: "/dashboard/flipbooks" });
@@ -331,6 +345,22 @@ export function FlipbookSettings({
           )}
         </div>
       </div>
+      {flipbook.status === "FAILED" && flipbook.type === "PDF" && (
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-danger-line bg-danger-tint px-4 py-3 text-[12.5px] text-danger">
+          <span className="min-w-0 flex-1">
+            <span className="font-semibold">Processing failed</span>
+            {flipbook.error ? ` · ${flipbook.error}` : ""}. Retry, or delete it and upload the PDF again.
+          </span>
+          <Button variant="danger" onClick={retry} disabled={retrying}>
+            {retrying ? "Queued…" : "Retry processing"}
+          </Button>
+        </div>
+      )}
+      {(flipbook.status === "PROCESSING" || flipbook.status === "UPLOADING") && (
+        <p role="status" className="rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-[12.5px] text-warning-ink">
+          <span className="font-semibold">Rendering pages…</span> You can already change the settings; the preview fills in when it is done.
+        </p>
+      )}
       {actionError && (
         <p role="alert" className="-mt-2 text-[12.5px] text-danger">
           {actionError}

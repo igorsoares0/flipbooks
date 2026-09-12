@@ -1,8 +1,8 @@
-import { SquarePlus, Upload } from "lucide-react";
+import { SquarePlus } from "lucide-react";
 import type { Metadata } from "next";
 import { OpenEditorButton } from "@/components/flipbook/open-editor-button";
+import { PdfDropzone } from "@/components/flipbook/pdf-dropzone";
 import { TemplateGallery } from "@/components/flipbook/template-gallery";
-import { Button } from "@/components/ui/button";
 import { createFlipbookAction } from "@/lib/actions/flipbooks";
 import { getBilling } from "@/lib/data";
 import { TEMPLATES } from "@/lib/templates";
@@ -22,20 +22,7 @@ export default async function CreateFlipbookPage() {
       </div>
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))] gap-4">
-        {/* Upload, validation and processing states arrive with the PDF pipeline phase. */}
-        <div className="flex flex-col items-center rounded-2xl border-[1.5px] border-dashed border-line-strong bg-surface p-[26px] text-center hover:border-accent hover:bg-[#FBFBFF]">
-          <div className="mb-3.5 flex size-[46px] items-center justify-center rounded-xl bg-accent-soft text-accent">
-            <Upload className="size-5" strokeWidth={1.6} />
-          </div>
-          <h2 className="text-[15px] font-semibold">From PDF</h2>
-          <p className="mt-[7px] mb-4 max-w-[280px] text-[12.5px] leading-[1.55] text-pretty text-muted">
-            Drag a PDF here or browse. Max {maxPdfBytes / 1e6} MB, up to {maxPdfPages} pages on your {planName} plan.
-          </p>
-          <Button variant="accent" className="rounded-lg px-4">
-            Choose file
-          </Button>
-          <div className="mt-3 font-mono text-[10px] font-medium text-muted-3">PDF · UPLOAD → R2 → WORKER → READY</div>
-        </div>
+        <PdfDropzone maxBytes={maxPdfBytes} maxPages={maxPdfPages} planName={planName} />
 
         <div className="flex flex-col items-center rounded-2xl border border-line bg-surface p-[26px] text-center">
           <div className="mb-3.5 flex size-[46px] items-center justify-center rounded-xl bg-surface-alt">

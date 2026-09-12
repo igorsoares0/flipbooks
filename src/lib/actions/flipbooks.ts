@@ -106,7 +106,9 @@ export async function saveDocumentAction(id: string, pages: unknown): Promise<Ac
   if (!idSchema.safeParse(id).success || !parsed.success) return fail("The document could not be saved: invalid data.");
   if (!(await getEntitlements(user.id)).canUseCanvasEditor) return fail(UPGRADE_MESSAGES.canvas);
 
-  if (!(await mutations.saveDocument(user.id, id, parsed.data))) return fail(NOT_FOUND);
+  const saved = await mutations.saveDocument(user.id, id, parsed.data);
+  if (saved === "not-found") return fail(NOT_FOUND);
+  if (saved === "foreign-file") return fail("The document could not be saved: invalid page image.");
   revalidateFlipbook(id);
   return { ok: true };
 }

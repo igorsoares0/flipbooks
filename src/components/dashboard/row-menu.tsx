@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { buttonClasses } from "@/components/ui/button";
 import { deleteFlipbookAction, duplicateFlipbookAction } from "@/lib/actions/flipbooks";
+import { retryProcessingAction } from "@/lib/actions/uploads";
 import { cn } from "@/lib/utils";
 
 const item = "flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-surface-sunken hover:text-ink";
 
 /** The row's "···" menu. Not in the design handoff; styled with the card tokens. */
-export function RowMenu({ id, title, published }: { id: string; title: string; published: boolean }) {
+export function RowMenu({ id, title, published, canRetry = false }: { id: string; title: string; published: boolean; canRetry?: boolean }) {
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +59,11 @@ export function RowMenu({ id, title, published }: { id: string; title: string; p
               <Link role="menuitem" href={`/dashboard/flipbooks/${id}/analytics`} className={item} onClick={close}>
                 Analytics
               </Link>
+            )}
+            {canRetry && (
+              <button role="menuitem" className={item} disabled={pending} onClick={() => run(() => retryProcessingAction(id))}>
+                Retry processing
+              </button>
             )}
             <button role="menuitem" className={item} disabled={pending} onClick={() => run(() => duplicateFlipbookAction(id))}>
               {pending && !confirming ? "Duplicating…" : "Duplicate"}

@@ -43,6 +43,20 @@ export function slugify(title: string) {
   return slug || "flipbook";
 }
 
+/** "summer_catalog-2026 (final).PDF" → "Summer catalog 2026 (final)". */
+export function titleFromFilename(filename: string) {
+  const base = filename
+    .trim()
+    .replace(/\.pdf$/i, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, TITLE_MAX);
+  return base ? base[0].toUpperCase() + base.slice(1) : "Untitled flipbook";
+}
+
+export const PDF_CONTENT_TYPE = "application/pdf";
+
 /** Processing and failed books have no pages yet, so they can't be opened or edited. */
 export function hasPages(flipbook: Pick<Flipbook, "status" | "pageCount">) {
   return ["DRAFT", "READY", "PUBLISHED"].includes(flipbook.status) && flipbook.pageCount > 0;

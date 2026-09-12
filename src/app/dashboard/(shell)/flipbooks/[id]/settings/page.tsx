@@ -30,6 +30,8 @@ export default async function FlipbookSettingsPage({ params, searchParams }: Pag
         description: flipbook.description,
         visibility: flipbook.visibility,
         status: flipbook.status,
+        type: flipbook.type,
+        error: flipbook.error,
         settings: flipbook.settings,
       }}
       previewPages={previewPages}

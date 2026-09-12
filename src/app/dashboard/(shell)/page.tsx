@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { toFlipbookRows } from "@/components/dashboard/flipbook-rows";
 import { FlipbookTable } from "@/components/dashboard/flipbook-table";
+import { ProcessingWatcher } from "@/components/dashboard/processing-watcher";
 import { getBilling, getDashboardStats, getRecentFlipbooks } from "@/lib/data";
 import { formatCompact, formatDuration, formatGb, formatPercentDelta } from "@/lib/format";
 
@@ -23,6 +24,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-6">
+      <ProcessingWatcher active={recent.some((fb) => fb.status === "UPLOADING" || fb.status === "PROCESSING")} />
       <div className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-3.5">
         <StatCard
           label="FLIPBOOKS"

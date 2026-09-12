@@ -1,4 +1,5 @@
-# Local Postgres for development and tests. Production uses Neon via DATABASE_URL.
+# Local services for development and tests.
+# Production uses Neon (DATABASE_URL) and Cloudflare R2 (S3_* variables) instead.
 services:
   postgres:
     image: postgres:17-alpine
@@ -19,5 +20,43 @@ services:
       timeout: 3s
       retries: 30
 
+  # S3-compatible object storage standing in for R2.
+  minio:
+    image: minio/minio:latest
+    container_name: flipbook-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: flipbook
+      MINIO_ROOT_PASSWORD: flipbook-secret
+      # Browsers upload straight to storage with presigned URLs.
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - flipbook-minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # One-shot: creates the dev and test buckets, then exits.
+  minio-init:
+    image: minio/mc:latest
+    container_name: flipbook-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 flipbook flipbook-secret &&
+      mc mb --ignore-existing local/flipbook &&
+      mc mb --ignore-existing local/flipbook-test
+      "
+    restart: "no"
+
 volumes:
   flipbook-pgdata:
+  flipbook-minio:

@@ -10,6 +10,7 @@ vi.mock("@/lib/actions/flipbooks", () => ({
   duplicateFlipbookAction: vi.fn(async () => ({ ok: true })),
   deleteFlipbookAction: vi.fn(async () => ({ ok: true })),
 }));
+vi.mock("@/lib/actions/uploads", () => ({ retryProcessingAction: vi.fn(async () => ({ ok: true })) }));
 
 const row = (overrides: Partial<FlipbookRow>): FlipbookRow => ({
   id: "fb_1",
@@ -21,6 +22,7 @@ const row = (overrides: Partial<FlipbookRow>): FlipbookRow => ({
   views: "1,000",
   updated: "2h ago",
   tint: ["#EEEEEE", "#DDDDDD"],
+  thumbnailUrl: null,
   hasPages: true,
   ...overrides,
 });

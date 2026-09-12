@@ -19,6 +19,8 @@ export type FlipbookRow = {
   views: string;
   updated: string;
   tint: [string, string];
+  /** Rendered cover (PDF flipbooks); the gradient shows until there is one. */
+  thumbnailUrl: string | null;
   /** Processing and failed books have no pages to edit or view yet. */
   hasPages: boolean;
 };
@@ -29,7 +31,13 @@ const FILTERS = [
   { label: "Canvas", value: "CANVAS" },
 ] as const;
 
-export function FlipbookThumb({ tint }: { tint: [string, string] }) {
+export function FlipbookThumb({ tint, url }: { tint: [string, string]; url?: string | null }) {
+  if (url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL, already a small WebP
+      <img src={url} alt="" loading="lazy" className="h-[58px] w-11 shrink-0 rounded border border-line bg-white object-cover object-top" />
+    );
+  }
   return (
     <div
       className="relative h-[58px] w-11 shrink-0 overflow-hidden rounded border border-line"
@@ -106,7 +114,7 @@ export function FlipbookTable({
           key={row.id}
           className="flex flex-wrap items-center gap-x-3.5 gap-y-2.5 border-b border-line-soft px-[18px] py-[13px] last:border-b-0 hover:bg-surface-sunken"
         >
-          <FlipbookThumb tint={row.tint} />
+          <FlipbookThumb tint={row.tint} url={row.thumbnailUrl} />
           <div className="min-w-[140px] flex-[1_1_140px]">
             <div className="flex items-center gap-2">
               <span className="truncate text-[13.5px] font-semibold">{row.title}</span>
@@ -141,7 +149,7 @@ export function FlipbookTable({
                 </span>
               </>
             )}
-            <RowMenu id={row.id} title={row.title} published={row.status === "PUBLISHED"} />
+            <RowMenu id={row.id} title={row.title} published={row.status === "PUBLISHED"} canRetry={row.status === "FAILED" && row.type === "PDF"} />
           </div>
         </div>
       ))}

@@ -1,9 +1,10 @@
 import "server-only";
 
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { DEFAULT_SETTINGS, PAGE_HEIGHT, PAGE_WIDTH, slugify } from "@/lib/flipbook-rules";
+import { copyPrefix, deletePrefix, keys } from "@/lib/storage";
 import type { Template } from "@/lib/types";
 import type { DocumentInput, FlipbookPatch } from "@/lib/validation";
 import { toFlipbook } from "./mappers";
@@ -26,7 +27,7 @@ export async function isSlugTaken(slug: string, exceptFlipbookId?: string) {
   return Boolean(row && row.id !== exceptFlipbookId);
 }
 
-async function uniqueSlug(title: string) {
+export async function uniqueSlug(title: string) {
   const base = slugify(title);
   if (!(await isSlugTaken(base))) return base;
   for (let i = 0; i < 5; i++) {
@@ -91,6 +92,11 @@ export async function publishFlipbook(userId: string, id: string) {
 
 export async function deleteFlipbook(userId: string, id: string) {
   const { count } = await prisma.flipbook.deleteMany({ where: { id, userId } });
+  if (count === 1) {
+    // Best effort: the database row is the source of truth; the worker's sweep and
+    // periodic cleanup catch anything left behind.
+    await deletePrefix(keys.prefix(id)).catch((error) => console.error("[storage] cleanup failed", id, error));
+  }
   return count === 1;
 }
 
@@ -102,8 +108,15 @@ export async function duplicateFlipbook(userId: string, id: string) {
   if (!source) return null;
 
   const title = `${source.title} (copy)`;
+  // Rendered PDF pages live under the flipbook's own prefix, so a copy gets its own files.
+  const copyId = randomUUID().replaceAll("-", "");
+  const hasFiles = Boolean(source.originalPdfKey || source.thumbnailKey || source.pages.some((p) => p.backgroundImageKey));
+  if (hasFiles) await copyPrefix(keys.prefix(source.id), keys.prefix(copyId));
+  const moveKey = (key: string | null) => key?.replace(keys.prefix(source.id), keys.prefix(copyId)) ?? null;
+
   const copy = await prisma.flipbook.create({
     data: {
+      id: copyId,
       userId,
       title,
       slug: await uniqueSlug(title),
@@ -112,9 +125,9 @@ export async function duplicateFlipbook(userId: string, id: string) {
       visibility: "PRIVATE",
       description: source.description,
       settings: source.settings as Prisma.InputJsonValue,
-      thumbnailKey: source.thumbnailKey,
+      thumbnailKey: moveKey(source.thumbnailKey),
       thumbnailTint: source.thumbnailTint,
-      originalPdfKey: source.originalPdfKey,
+      originalPdfKey: moveKey(source.originalPdfKey),
       fileSize: source.fileSize,
       pageCount: source.pageCount,
       pages: {
@@ -123,7 +136,7 @@ export async function duplicateFlipbook(userId: string, id: string) {
           width: page.width,
           height: page.height,
           background: page.background as Prisma.InputJsonValue,
-          backgroundImageKey: page.backgroundImageKey,
+          backgroundImageKey: moveKey(page.backgroundImageKey),
           elements: {
             create: page.elements.map(({ id: _id, pageId: _pageId, createdAt: _c, updatedAt: _u, properties, ...el }) => ({
               ...el,
@@ -143,12 +156,16 @@ export async function duplicateFlipbook(userId: string, id: string) {
  * client's ids so the editor's selection survives a save. A per-element diff is a later
  * optimization.
  */
-export async function saveDocument(userId: string, id: string, pages: DocumentInput) {
+export async function saveDocument(userId: string, id: string, pages: DocumentInput): Promise<"ok" | "not-found" | "foreign-file"> {
   const owned = await prisma.flipbook.findFirst({
     where: { id, userId },
     select: { pages: { select: { id: true } } },
   });
-  if (!owned) return false;
+  if (!owned) return "not-found";
+  // Page images can only point at this flipbook's own files, never at another account's.
+  if (pages.some((page) => page.backgroundImageKey && !page.backgroundImageKey.startsWith(keys.prefix(id)))) {
+    return "foreign-file";
+  }
 
   const existing = new Set(owned.pages.map((p) => p.id));
   const incoming = pages.map((page, i) => ({ ...page, pageNumber: i + 1 }));
@@ -177,5 +194,5 @@ export async function saveDocument(userId: string, id: string, pages: DocumentIn
     if (elements.length > 0) await tx.element.createMany({ data: elements });
     await tx.flipbook.update({ where: { id }, data: { pageCount: incoming.length } });
   });
-  return true;
+  return "ok";
 }

@@ -168,7 +168,7 @@ describe("autosave", () => {
     };
     // Swap the first two pages, drop the last one, add a heading.
     const edited = [{ ...second }, { ...first, elements: [heading] }, ...rest.slice(0, -1)];
-    expect(await mutations.saveDocument(MARINA, draft.id, toInput(edited))).toBe(true);
+    expect(await mutations.saveDocument(MARINA, draft.id, toInput(edited))).toBe("ok");
 
     const saved = await repo.getPages(draft.id);
     expect(saved.map((p) => p.id)).toEqual(edited.map((p) => p.id));
@@ -179,7 +179,7 @@ describe("autosave", () => {
 
   it("refuses other people's documents and foreign page ids", async () => {
     const pages = await repo.getPages("fb_2Hc6");
-    expect(await mutations.saveDocument(THEO, "fb_2Hc6", toInput(pages))).toBe(false);
+    expect(await mutations.saveDocument(THEO, "fb_2Hc6", toInput(pages))).toBe("not-found");
 
     // Marina tries to smuggle Theo's page into her own book: the transaction fails, nothing moves.
     const theirs = await repo.getPages("fb_theo_pub", { pageNumbers: [1] });

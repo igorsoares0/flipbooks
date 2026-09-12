@@ -5,8 +5,10 @@ import type { Flipbook } from "@/lib/types";
 
 function describe(fb: Flipbook) {
   if (fb.status === "FAILED") return `Upload failed · ${fb.error ?? "unknown error"}`;
-  const pages = `${fb.pageCount} pages`;
-  if (fb.status === "PROCESSING") return `${pages} · rendering`;
+  const size = fb.fileSize ? formatMb(fb.fileSize) : "PDF";
+  if (fb.status === "UPLOADING") return `${size} · uploading`;
+  const pages = `${fb.pageCount} ${fb.pageCount === 1 ? "page" : "pages"}`;
+  if (fb.status === "PROCESSING") return fb.pageCount > 0 ? `${pages} · rendering` : `${size} · rendering pages`;
   if (fb.type === "PDF" && fb.fileSize) return `${pages} · ${formatMb(fb.fileSize)}`;
   if (fb.visibility === "PRIVATE") return `${pages} · private`;
   return `${pages} · edited by you`;
@@ -24,6 +26,7 @@ export function toFlipbookRows(flipbooks: Flipbook[]): FlipbookRow[] {
     views: fb.views === null ? "—" : formatCount(fb.views),
     updated: formatRelative(fb.updatedAt, now),
     tint: fb.thumbnailTint,
+    thumbnailUrl: fb.thumbnailUrl,
     hasPages: isViewable(fb),
   }));
 }

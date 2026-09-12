@@ -11,6 +11,28 @@ const serverCommand = process.env.E2E_DEV
   ? `npm run dev -- --port ${PORT}`
   : `npm run build && npm run start -- --port ${PORT}`;
 
+// Everything the app and the worker see during e2e: test database, test bucket, no real email.
+const TEST_ENV = {
+  DATABASE_URL: TEST_DATABASE_URL,
+  DIRECT_URL: "",
+  BETTER_AUTH_URL: baseURL,
+  BETTER_AUTH_SECRET: "e2e-only-secret-not-used-anywhere-else-000000",
+  // Share links keep the production host, as in the design.
+  NEXT_PUBLIC_APP_URL: "https://flipbook.co",
+  EMAIL_OUTBOX_DIR: ".emails-test",
+  RESEND_API_KEY: "",
+  GOOGLE_CLIENT_ID: "",
+  GOOGLE_CLIENT_SECRET: "",
+  // Many parallel sign-ins from one IP would trip the production rate limiter.
+  AUTH_RATE_LIMIT: "off",
+  S3_ENDPOINT: process.env.TEST_S3_ENDPOINT ?? "http://localhost:9000",
+  S3_REGION: "us-east-1",
+  S3_BUCKET: process.env.TEST_S3_BUCKET ?? "flipbook-test",
+  S3_ACCESS_KEY_ID: "flipbook",
+  S3_SECRET_ACCESS_KEY: "flipbook-secret",
+  S3_FORCE_PATH_STYLE: "true",
+};
+
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
@@ -41,25 +63,22 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    command: serverCommand,
-    url: baseURL,
-    // Never reuse a running server: it could be pointed at the dev database.
-    reuseExistingServer: false,
-    timeout: 300_000,
-    env: {
-      DATABASE_URL: TEST_DATABASE_URL,
-      DIRECT_URL: "",
-      BETTER_AUTH_URL: baseURL,
-      BETTER_AUTH_SECRET: "e2e-only-secret-not-used-anywhere-else-000000",
-      // Share links keep the production host, as in the design.
-      NEXT_PUBLIC_APP_URL: "https://flipbook.co",
-      EMAIL_OUTBOX_DIR: ".emails-test",
-      RESEND_API_KEY: "",
-      GOOGLE_CLIENT_ID: "",
-      GOOGLE_CLIENT_SECRET: "",
-      // Many parallel sign-ins from one IP would trip the production rate limiter.
-      AUTH_RATE_LIMIT: "off",
+  webServer: [
+    {
+      command: serverCommand,
+      url: baseURL,
+      // Never reuse a running server: it could be pointed at the dev database.
+      reuseExistingServer: false,
+      timeout: 300_000,
+      env: TEST_ENV,
     },
-  },
+    {
+      // The PDF worker, on the same test database and bucket.
+      command: "npm run worker",
+      wait: { stdout: /worker\.started/ },
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: { ...TEST_ENV, WORKER_POLL_MS: "250", WORKER_CONCURRENCY: "2" },
+    },
+  ],
 });

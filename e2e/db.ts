@@ -87,6 +87,11 @@ export async function cloneFlipbook(sourceId: string, userId: string) {
   return { id: copy.id, slug: copy.slug };
 }
 
+/** Processing jobs queued for a user's flipbook, found by title. */
+export async function jobCountFor(userId: string, title: string) {
+  return prisma.processingJob.count({ where: { flipbook: { userId, title } } });
+}
+
 export async function getFlipbookRow(id: string) {
   return prisma.flipbook.findUnique({ where: { id }, include: { _count: { select: { pages: true } } } });
 }

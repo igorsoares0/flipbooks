@@ -24,6 +24,8 @@ export function toFlipbook(row: FlipbookRow): Flipbook {
     fileSize: row.fileSize,
     error: row.error,
     thumbnailTint: [from, to],
+    // Signed separately (src/lib/data/urls.ts): mappers stay synchronous and storage-free.
+    thumbnailUrl: null,
     // Views only mean something once a book can be read.
     views: row.status === "PUBLISHED" || row.status === "READY" ? row.viewCount : null,
     createdAt: row.createdAt.toISOString(),

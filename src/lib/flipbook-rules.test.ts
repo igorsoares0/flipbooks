@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { hasPages, slugify, slugProblem } from "./flipbook-rules";
+import { keys } from "./storage/s3";
+import { hasPages, slugify, slugProblem, titleFromFilename } from "./flipbook-rules";
+
+describe("titleFromFilename", () => {
+  it("turns file names into readable titles", () => {
+    expect(titleFromFilename("summer_catalog-2026 (final).PDF")).toBe("Summer catalog 2026 (final)");
+    expect(titleFromFilename("  Annual   Report.pdf ")).toBe("Annual Report");
+    expect(titleFromFilename(".pdf")).toBe("Untitled flipbook");
+    expect(titleFromFilename(`${"x".repeat(300)}.pdf`)).toHaveLength(120);
+  });
+});
+
+describe("storage keys", () => {
+  it("follow the spec's layout, with zero-padded page numbers", () => {
+    expect(keys.original("fb_1")).toBe("flipbooks/fb_1/original.pdf");
+    expect(keys.page("fb_1", 7)).toBe("flipbooks/fb_1/pages/007.webp");
+    expect(keys.thumbnail("fb_1", 123)).toBe("flipbooks/fb_1/thumbnails/123.webp");
+    expect(keys.page("fb_1", 7).startsWith(keys.prefix("fb_1"))).toBe(true);
+  });
+});
 
 describe("slugify", () => {
   it("turns titles into URL-safe slugs", () => {

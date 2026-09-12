@@ -39,6 +39,7 @@ export default async function PublicViewerPage({ params, searchParams }: PagePro
       pages={pages}
       initialPage={Number(page) || 1}
       publicUrl={publicFlipbookUrl(flipbook.slug)}
+      downloadHref={flipbook.type === "PDF" && flipbook.settings.showDownload ? `/api/flipbooks/${flipbook.id}/download` : null}
     />
   );
 }

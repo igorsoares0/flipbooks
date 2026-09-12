@@ -27,12 +27,15 @@ export function Viewer({
   initialPage,
   variant = "public",
   publicUrl,
+  downloadHref = null,
 }: {
   flipbook: { title: string; settings: FlipbookSettings };
   pages: Page[];
   initialPage: number;
   variant?: "public" | "embed";
   publicUrl: string;
+  /** Original-PDF download, when the owner allows it. */
+  downloadHref?: string | null;
 }) {
   const { settings } = flipbook;
   const pageCount = pages.length;
@@ -72,6 +75,15 @@ export function Viewer({
     window.history.replaceState(null, "", url);
     thumbRefs.current[firstVisible - 1]?.scrollIntoView({ block: "nearest", inline: "center" });
   }, [firstVisible]);
+
+  // Warm the cache with the next spread's page images so turning the page is instant.
+  useEffect(() => {
+    const next = spreadPages(Math.min(spread + 1, maxSpread), pageCount);
+    for (const n of [next.left, next.right]) {
+      const url = n ? pages[n - 1]?.backgroundImageUrl : null;
+      if (url) new Image().src = url;
+    }
+  }, [spread, maxSpread, pageCount, pages]);
 
   const dark = isDarkColor(settings.backgroundColor);
   const fg = dark ? "text-on-dark" : "text-ink";
@@ -132,7 +144,11 @@ export function Viewer({
                 {copied ? "Link copied" : "Share"}
               </button>
             )}
-            {settings.showDownload && <button className={chromeButton}>Download</button>}
+            {downloadHref && (
+              <a href={downloadHref} className={cn(chromeButton, "inline-flex items-center")} download>
+                Download
+              </a>
+            )}
             {settings.showFullscreen && (
               <button className={chromeButton} onClick={fullscreen}>
                 Fullscreen

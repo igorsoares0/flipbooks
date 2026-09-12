@@ -1,9 +1,9 @@
 // Domain types mirroring the data model in the product spec (§31).
-// Phase 1 fills them from mock data; later phases map Prisma models onto them.
+// Built from Prisma rows in src/lib/data/mappers.ts; the UI only sees these.
 
 export type FlipbookType = "PDF" | "CANVAS";
 
-export type FlipbookStatus = "DRAFT" | "PROCESSING" | "READY" | "PUBLISHED" | "FAILED" | "ARCHIVED";
+export type FlipbookStatus = "UPLOADING" | "DRAFT" | "PROCESSING" | "READY" | "PUBLISHED" | "FAILED" | "ARCHIVED";
 
 export type Visibility = "PUBLIC" | "UNLISTED" | "PRIVATE";
 
@@ -34,8 +34,10 @@ export interface Flipbook {
   fileSize: number | null;
   /** Last processing error, shown when status is FAILED. */
   error: string | null;
-  /** Placeholder cover tint until real thumbnails come from R2. */
+  /** Cover gradient, shown until a rendered thumbnail exists. */
   thumbnailTint: [string, string];
+  /** Short-lived signed URL of the rendered first-page thumbnail (PDF flipbooks). */
+  thumbnailUrl: string | null;
   views: number | null;
   createdAt: string;
   updatedAt: string;
@@ -53,7 +55,10 @@ export interface Page {
   width: number;
   height: number;
   background: PageBackground;
+  /** Storage key of the rendered PDF page, if any. */
   backgroundImageKey: string | null;
+  /** Short-lived signed URL for backgroundImageKey, resolved per request; never stored. */
+  backgroundImageUrl?: string | null;
   elements: PageElement[];
 }
 

@@ -8,7 +8,7 @@ const now = Date.now();
 const minutesAgo = (m: number) => new Date(now - m * 60_000).toISOString();
 const hoursAgo = (h: number) => minutesAgo(h * 60);
 
-type MockFlipbook = Omit<Flipbook, "userId" | "settings" | "createdAt"> & {
+type MockFlipbook = Omit<Flipbook, "userId" | "settings" | "createdAt" | "thumbnailUrl"> & {
   cover?: { runs: TextRun[]; caption: string };
 };
 
@@ -221,5 +221,6 @@ export type DemoFlipbook = Omit<Flipbook, "userId"> & { cover?: MockFlipbook["co
 export const demoFlipbooks: DemoFlipbook[] = rows.map((row) => ({
   ...row,
   settings: DEFAULT_SETTINGS,
+  thumbnailUrl: null,
   createdAt: row.publishedAt ?? row.updatedAt,
 }));

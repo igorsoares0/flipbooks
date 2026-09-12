@@ -65,6 +65,7 @@ function SignOutButton() {
         setPending(true);
         await authClient.signOut();
         // A full page load drops the client router cache, so Back can't show signed-in pages.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- intentional hard navigation
         window.location.assign("/login");
       }}
     >

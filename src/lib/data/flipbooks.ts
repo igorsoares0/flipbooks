@@ -6,6 +6,7 @@ import { resolveEntitlements } from "@/lib/entitlements";
 import { hasPages } from "@/lib/flipbook-rules";
 import type { DashboardStats, Entitlements, Plan, Usage } from "@/lib/types";
 import { toFlipbook, toPage } from "./mappers";
+import { withPageImageUrls, withThumbnailUrl } from "./urls";
 
 // Read side. Every function that returns private data takes the owner's id and
 // filters on it, so a flipbook that belongs to someone else is simply "not found".
@@ -17,7 +18,7 @@ export async function listFlipbooks(userId: string, { query, take }: { query?: s
     orderBy: { updatedAt: "desc" },
     take,
   });
-  return rows.map(toFlipbook);
+  return Promise.all(rows.map((row) => withThumbnailUrl(toFlipbook(row), row)));
 }
 
 export async function countFlipbooks(userId: string) {
@@ -26,7 +27,7 @@ export async function countFlipbooks(userId: string) {
 
 export async function getOwnedFlipbook(userId: string, id: string) {
   const row = await prisma.flipbook.findFirst({ where: { id, userId } });
-  return row ? toFlipbook(row) : null;
+  return row ? withThumbnailUrl(toFlipbook(row), row) : null;
 }
 
 /**
@@ -37,9 +38,9 @@ export async function getReadableFlipbook(by: { slug: string } | { id: string },
   const row = await prisma.flipbook.findUnique({ where: "slug" in by ? { slug: by.slug } : { id: by.id } });
   if (!row) return null;
   const flipbook = toFlipbook(row);
-  if (viewerId && viewerId === row.userId) return hasPages(flipbook) ? flipbook : null;
+  if (viewerId && viewerId === row.userId) return hasPages(flipbook) ? withThumbnailUrl(flipbook, row) : null;
   if (row.status !== "PUBLISHED" || row.visibility === "PRIVATE" || row.pageCount === 0) return null;
-  return flipbook;
+  return withThumbnailUrl(flipbook, row);
 }
 
 export async function getPages(flipbookId: string, { pageNumbers }: { pageNumbers?: number[] } = {}) {
@@ -48,7 +49,13 @@ export async function getPages(flipbookId: string, { pageNumbers }: { pageNumber
     orderBy: { pageNumber: "asc" },
     include: { elements: { orderBy: { zIndex: "asc" } } },
   });
-  return rows.map(toPage);
+  return withPageImageUrls(rows.map(toPage));
+}
+
+/** Storage key of the uploaded PDF. Call only after a readability or ownership check. */
+export async function getOriginalPdfKey(flipbookId: string) {
+  const row = await prisma.flipbook.findUnique({ where: { id: flipbookId }, select: { originalPdfKey: true } });
+  return row?.originalPdfKey ?? null;
 }
 
 export async function getTopFlipbook(userId: string) {

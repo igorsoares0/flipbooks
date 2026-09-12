@@ -1,4 +1,4 @@
-import type { Email } from ".";
+import type { Email } from "./send";
 
 // Inline styles only: email clients ignore stylesheets. Colors come from the design tokens.
 const INK = "#17150F";
@@ -48,5 +48,39 @@ export function resetPasswordEmail({ to, name, url }: { to: string; name: string
     subject: "Reset your Flipbook password",
     html: layout({ heading: "Reset your password", body, cta: "Choose a new password", url, footnote }),
     text: `${body}\n\nReset: ${url}\n\n${footnote}`,
+  };
+}
+
+export function processingDoneEmail({ to, name, title, url }: { to: string; name: string; title: string; url: string }): Email {
+  const body = `Hi ${name}, "${title}" is rendered and ready. Check the pages, then publish it when you're happy.`;
+  const footnote = "You get this email when a PDF upload finishes processing.";
+  return {
+    to,
+    subject: `"${title}" is ready`,
+    html: layout({ heading: "Your flipbook is ready", body, cta: "Open flipbook", url, footnote }),
+    text: `${body}\n\nOpen: ${url}\n\n${footnote}`,
+  };
+}
+
+export function processingFailedEmail({
+  to,
+  name,
+  title,
+  reason,
+  url,
+}: {
+  to: string;
+  name: string;
+  title: string;
+  reason: string;
+  url: string;
+}): Email {
+  const body = `Hi ${name}, we couldn't turn "${title}" into a flipbook: ${reason}. You can retry, or upload a new copy of the PDF.`;
+  const footnote = "Nothing was published. Your other flipbooks are not affected.";
+  return {
+    to,
+    subject: `We couldn't process "${title}"`,
+    html: layout({ heading: "Processing failed", body, cta: "See details", url, footnote }),
+    text: `${body}\n\nDetails: ${url}\n\n${footnote}`,
   };
 }

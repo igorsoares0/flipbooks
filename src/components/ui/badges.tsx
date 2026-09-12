@@ -2,6 +2,7 @@ import type { FlipbookStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const STATUS: Record<FlipbookStatus, { label: string; className: string }> = {
+  UPLOADING: { label: "Uploading", className: "bg-warning-soft text-warning-ink" },
   PUBLISHED: { label: "Published", className: "bg-success-soft text-success" },
   DRAFT: { label: "Draft", className: "bg-surface-alt text-muted" },
   PROCESSING: { label: "Processing", className: "bg-warning-soft text-warning-ink" },

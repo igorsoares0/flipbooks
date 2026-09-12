@@ -106,6 +106,14 @@ describe("PageCanvas", () => {
     expect(root.style.aspectRatio).toBe("520 / 690");
   });
 
+  it("draws a rendered PDF page under the elements", () => {
+    const { container } = render(<PageCanvas page={{ ...page, backgroundImageUrl: "https://files.test/p1.webp" }} />);
+    const image = screen.getByRole("img", { name: "Page 1" }) as HTMLImageElement;
+    expect(image.src).toBe("https://files.test/p1.webp");
+    expect(image.getAttribute("loading")).toBe("lazy");
+    expect(container.firstElementChild!.firstElementChild).toBe(image);
+  });
+
   it("lets the editor wrap elements and draw overlays", () => {
     render(
       <PageCanvas page={page} renderElement={(el) => <button key={el.id}>{el.name}</button>}>

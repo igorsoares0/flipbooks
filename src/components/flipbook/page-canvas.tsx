@@ -125,6 +125,19 @@ export function PageCanvas({
       className={cn("@container relative overflow-hidden", className)}
       style={{ background: page.background.color, aspectRatio: `${page.width} / ${page.height}`, ...style }}
     >
+      {page.backgroundImageUrl && (
+        // Rendered PDF page. A plain <img>: the URL is short-lived and signed, so the Next
+        // image optimizer can't cache it; pages are already sized WebP from the worker.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={page.backgroundImageUrl}
+          alt={`Page ${page.pageNumber}`}
+          className="pointer-events-none absolute inset-0 size-full object-cover select-none"
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+        />
+      )}
       {elements.map((element) =>
         renderElement ? (
           renderElement(element)
