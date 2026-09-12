@@ -101,7 +101,7 @@ function LiveViewerPreview({
   const chip = cn("rounded-[14px] border px-2 py-[3px] text-[10px] whitespace-nowrap", fg, dark ? "border-line-dark" : "border-[#D8D2C4]");
 
   return (
-    <div className="p-[18px]" style={{ background: settings.backgroundColor }}>
+    <div data-testid="viewer-preview" className="p-[18px]" style={{ background: settings.backgroundColor }}>
       <div className="mb-3 flex items-center gap-2">
         {settings.showLogo && (
           <span className="block size-[18px] shrink-0 rounded-[5px]" style={{ background: settings.accentColor }} />

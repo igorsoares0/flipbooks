@@ -6,10 +6,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { PageCanvas } from "@/components/flipbook/page-canvas";
 import type { FlipbookSettings, Page } from "@/lib/types";
 import { cn, isDarkColor } from "@/lib/utils";
-
-// Spreads pair pages like a printed book: the cover sits alone on the right,
-// then 2–3, 4–5, … and an even last page sits alone on the left.
-const spreadOf = (page: number) => Math.floor(page / 2);
+import { clampSpread, lastSpread, spreadLabel, spreadOf, spreadPages } from "./spreads";
 
 function Folio({ n, side }: { n: number; side: "left" | "right" }) {
   return (
@@ -39,21 +36,20 @@ export function Viewer({
 }) {
   const { settings } = flipbook;
   const pageCount = pages.length;
-  const lastSpread = spreadOf(pageCount);
-  const [spread, setSpread] = useState(() => Math.min(lastSpread, spreadOf(Math.max(1, initialPage))));
+  const maxSpread = lastSpread(pageCount);
+  const [spread, setSpread] = useState(() => clampSpread(spreadOf(Math.max(1, initialPage)), pageCount));
   const [showThumbs, setShowThumbs] = useState(settings.showThumbnails);
   const [zoomed, setZoomed] = useState(false);
   const [copied, setCopied] = useState(false);
   const thumbRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const leftNumber = spread * 2;
-  const rightNumber = spread * 2 + 1;
-  const left = leftNumber >= 1 ? pages[leftNumber - 1] : undefined;
-  const right = rightNumber <= pageCount ? pages[rightNumber - 1] : undefined;
-  const firstVisible = left?.pageNumber ?? right?.pageNumber ?? 1;
-  const counter = left && right ? `${left.pageNumber}–${right.pageNumber}` : String(firstVisible);
+  const numbers = spreadPages(spread, pageCount);
+  const left = numbers.left ? pages[numbers.left - 1] : undefined;
+  const right = numbers.right ? pages[numbers.right - 1] : undefined;
+  const firstVisible = numbers.left ?? numbers.right ?? 1;
+  const counter = spreadLabel(spread, pageCount);
 
-  const go = useCallback((next: number) => setSpread(Math.max(0, Math.min(lastSpread, next))), [lastSpread]);
+  const go = useCallback((next: number) => setSpread(clampSpread(next, pageCount)), [pageCount]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -61,13 +57,13 @@ export function Viewer({
       if (e.key === "ArrowLeft" || e.key === "PageUp") go(spread - 1);
       else if (e.key === "ArrowRight" || e.key === "PageDown") go(spread + 1);
       else if (e.key === "Home") go(0);
-      else if (e.key === "End") go(lastSpread);
+      else if (e.key === "End") go(maxSpread);
       else return;
       e.preventDefault();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [go, spread, lastSpread]);
+  }, [go, spread, maxSpread]);
 
   // Deep link: keep ?page= in sync so a copied URL reopens the same spread.
   useEffect(() => {
@@ -182,7 +178,7 @@ export function Viewer({
           </div>
         </div>
 
-        <button className={navButton} aria-label="Next pages" disabled={spread === lastSpread} onClick={() => go(spread + 1)}>
+        <button className={navButton} aria-label="Next pages" disabled={spread === maxSpread} onClick={() => go(spread + 1)}>
           <ChevronRight className="size-4" strokeWidth={1.6} />
         </button>
       </div>
