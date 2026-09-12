@@ -1,0 +1,204 @@
+// Domain types mirroring the data model in the product spec (§31).
+// Phase 1 fills them from mock data; later phases map Prisma models onto them.
+
+export type FlipbookType = "PDF" | "CANVAS";
+
+export type FlipbookStatus = "DRAFT" | "PROCESSING" | "READY" | "PUBLISHED" | "FAILED" | "ARCHIVED";
+
+export type Visibility = "PUBLIC" | "UNLISTED" | "PRIVATE";
+
+/** Stored in `Flipbook.settings` (JSONB). */
+export interface FlipbookSettings {
+  backgroundColor: string;
+  accentColor: string;
+  showBranding: boolean;
+  showLogo: boolean;
+  showShare: boolean;
+  showDownload: boolean;
+  showFullscreen: boolean;
+  showThumbnails: boolean;
+}
+
+export interface Flipbook {
+  id: string;
+  userId: string;
+  title: string;
+  slug: string;
+  type: FlipbookType;
+  status: FlipbookStatus;
+  visibility: Visibility;
+  description: string;
+  settings: FlipbookSettings;
+  pageCount: number;
+  /** Size of the original PDF in bytes; null for canvas flipbooks. */
+  fileSize: number | null;
+  /** Last processing error, shown when status is FAILED. */
+  error: string | null;
+  /** Placeholder cover tint until real thumbnails come from R2. */
+  thumbnailTint: [string, string];
+  views: number | null;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+}
+
+export interface PageBackground {
+  color: string;
+}
+
+export interface Page {
+  id: string;
+  flipbookId: string;
+  pageNumber: number;
+  width: number;
+  height: number;
+  background: PageBackground;
+  backgroundImageKey: string | null;
+  elements: PageElement[];
+}
+
+interface ElementBase {
+  id: string;
+  pageId: string;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  opacity: number;
+  zIndex: number;
+  locked: boolean;
+  visible: boolean;
+}
+
+export type FontFamily = "sans" | "serif" | "mono";
+
+export interface TextRun {
+  text: string;
+  italic?: boolean;
+}
+
+export interface TextElement extends ElementBase {
+  type: "TEXT";
+  properties: {
+    runs: TextRun[];
+    fontFamily: FontFamily;
+    fontSize: number;
+    fontWeight: number;
+    color: string;
+    align: "left" | "center" | "right";
+    lineHeight: number;
+    letterSpacing: number;
+  };
+}
+
+export interface ImageElement extends ElementBase {
+  type: "IMAGE";
+  properties: {
+    assetKey: string | null;
+    fit: "cover" | "contain";
+    /** Gradient shown until the asset is uploaded to R2. */
+    placeholder: { from: string; to: string; label: string; labelPosition: "center" | "bottom-left" };
+  };
+}
+
+export interface ShapeElement extends ElementBase {
+  type: "SHAPE";
+  properties: {
+    shape: "rect" | "ellipse" | "line";
+    fill: string;
+    radius: number;
+  };
+}
+
+export type PageElement = TextElement | ImageElement | ShapeElement;
+
+export type ElementType = PageElement["type"];
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  image: string | null;
+}
+
+export type Plan = "FREE" | "LIFETIME";
+
+export interface Entitlements {
+  plan: Plan;
+  canUseCanvasEditor: boolean;
+  canRemoveBranding: boolean;
+  canUseCustomSlug: boolean;
+  canUseAnalytics: boolean;
+  canEmbed: boolean;
+  maxStorageBytes: number;
+  maxPagesProcessed: number;
+  maxMonthlyViews: number;
+  maxBandwidthBytes: number;
+  maxPdfBytes: number;
+  maxPdfPages: number;
+}
+
+export interface Usage {
+  storageBytes: number;
+  pagesProcessed: number;
+  monthlyViews: number;
+  bandwidthBytes: number;
+}
+
+export interface Billing {
+  plan: Plan;
+  provider: "paddle";
+  purchasedAt: string;
+  expiresAt: string | null;
+  entitlements: Entitlements;
+  usage: Usage;
+}
+
+export interface DashboardStats {
+  flipbookCount: number;
+  publishedThisMonth: number;
+  totalViews: number;
+  viewsDelta: number;
+  avgReadSeconds: number;
+  storageBytes: number;
+  storageLimitBytes: number;
+}
+
+export type AnalyticsRange = "30d" | "90d" | "all";
+
+export interface AnalyticsSummary {
+  range: AnalyticsRange;
+  totals: {
+    views: number;
+    uniqueVisitors: number;
+    pageViews: number;
+    avgReadSeconds: number;
+    shares: number;
+    downloads: number;
+  };
+  /** Change vs. the previous period: ratios, except avgReadSeconds (seconds). */
+  deltas: AnalyticsSummary["totals"];
+  /** Views per page, index 0 = page 1. */
+  viewsPerPage: number[];
+  devices: { name: string; share: number }[];
+  countries: { name: string; views: number }[];
+}
+
+export type TemplateCategory =
+  | "Magazines"
+  | "Catalogs"
+  | "Business"
+  | "Brochures"
+  | "Portfolios"
+  | "Reports"
+  | "Marketing";
+
+export interface Template {
+  id: string;
+  name: string;
+  category: TemplateCategory;
+  pageCount: number;
+  tint: string;
+}
