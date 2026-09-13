@@ -124,3 +124,52 @@ describe("PageCanvas", () => {
     expect(screen.getByText("overlay")).toBeTruthy();
   });
 });
+
+describe("placed pictures", () => {
+  const picture = (properties: Partial<Extract<PageElement, { type: "IMAGE" }>["properties"]>): Page => ({
+    id: "p1",
+    flipbookId: "fb",
+    pageNumber: 1,
+    width: 520,
+    height: 690,
+    background: { color: "#FFFFFF" },
+    backgroundImageKey: null,
+    elements: [
+      {
+        ...base,
+        id: "img",
+        name: "Harbour",
+        x: 0,
+        y: 0,
+        width: 200,
+        height: 100,
+        zIndex: 1,
+        type: "IMAGE",
+        properties: {
+          assetKey: null,
+          fit: "contain",
+          placeholder: { from: "#D9D3C5", to: "#C3BCAA", label: "IMAGE PLACEHOLDER", labelPosition: "center" },
+          ...properties,
+        },
+      },
+    ],
+  });
+
+  it("shows the uploaded picture with its fit", () => {
+    render(<PageCanvas page={picture({ assetKey: "assets/u/a.png", imageUrl: "https://files.test/a.png" })} />);
+    const img = screen.getByRole("img", { name: "Harbour" });
+    expect(img.getAttribute("src")).toBe("https://files.test/a.png");
+    expect(img.style.objectFit).toBe("contain");
+  });
+
+  it("says so when the picture was deleted", () => {
+    render(<PageCanvas page={picture({ assetKey: "assets/u/gone.png" })} />);
+    expect(screen.getByText("Image missing")).toBeTruthy();
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
+  it("falls back to the placeholder when nothing was uploaded", () => {
+    render(<PageCanvas page={picture({})} />);
+    expect(screen.getByText("IMAGE PLACEHOLDER")).toBeTruthy();
+  });
+});

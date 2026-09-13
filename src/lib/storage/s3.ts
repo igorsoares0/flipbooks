@@ -22,6 +22,8 @@ export const keys = {
   original: (flipbookId: string) => `flipbooks/${flipbookId}/original.pdf`,
   page: (flipbookId: string, pageNumber: number) => `flipbooks/${flipbookId}/pages/${pad(pageNumber)}.webp`,
   thumbnail: (flipbookId: string, pageNumber: number) => `flipbooks/${flipbookId}/thumbnails/${pad(pageNumber)}.webp`,
+  assetPrefix: (userId: string) => `assets/${userId}/`,
+  asset: (userId: string, assetId: string, ext: string) => `assets/${userId}/${assetId}.${ext}`,
 };
 
 function pad(n: number) {
@@ -100,16 +102,26 @@ export async function downloadToFile(key: string, path: string) {
   await pipeline(result.Body as Readable, createWriteStream(path));
 }
 
-async function listKeys(prefix: string) {
+export async function deleteObject(key: string) {
   const { client, bucket } = storage();
-  const found: string[] = [];
+  await client.send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: [{ Key: key }], Quiet: true } }));
+}
+
+/** Objects under a prefix, with when each was written. */
+export async function listObjects(prefix: string) {
+  const { client, bucket } = storage();
+  const found: { key: string; lastModified: Date }[] = [];
   let token: string | undefined;
   do {
     const page = await client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }));
-    found.push(...(page.Contents ?? []).flatMap((o) => (o.Key ? [o.Key] : [])));
+    found.push(...(page.Contents ?? []).flatMap((o) => (o.Key ? [{ key: o.Key, lastModified: o.LastModified ?? new Date(0) }] : [])));
     token = page.IsTruncated ? page.NextContinuationToken : undefined;
   } while (token);
   return found;
+}
+
+async function listKeys(prefix: string) {
+  return (await listObjects(prefix)).map((o) => o.key);
 }
 
 export async function deletePrefix(prefix: string) {

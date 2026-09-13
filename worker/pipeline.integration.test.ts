@@ -5,11 +5,11 @@ import { deleteFlipbook, duplicateFlipbook, saveDocument } from "@/lib/data/flip
 import { getPages } from "@/lib/data/flipbooks";
 import { checkUploadAllowed, confirmPdfUpload, createPdfUpload, retryPdfProcessing } from "@/lib/data/uploads";
 import { resolveEntitlements } from "@/lib/entitlements";
-import { head, keys, putObject, readRange } from "@/lib/storage/s3";
+import { deleteObject, head, keys, listObjects, putObject, readRange } from "@/lib/storage/s3";
 import { documentSchema } from "@/lib/validation";
 import { A4_LANDSCAPE, A4_PORTRAIT, corruptPdf, makePdf } from "../tests/pdf-fixtures";
 import { describeFailure } from "./errors";
-import { claimNextJob, completeJob, failJob, removeAbandonedUploads, requeueStuckJobs } from "./jobs";
+import { claimNextJob, completeJob, failJob, removeAbandonedUploads, removeOrphanAssets, requeueStuckJobs } from "./jobs";
 import { renderPdfJob } from "./render-pdf";
 
 // The whole PDF pipeline against real Postgres and MinIO: upload → confirm → claim → render.
@@ -195,6 +195,25 @@ describe("the job queue", () => {
     expect(await removeAbandonedUploads(prisma, async (id) => deleted.push(id))).toBe(1);
     expect(deleted).toEqual([flipbookId]);
     expect(await prisma.flipbook.findUnique({ where: { id: flipbookId } })).toBeNull();
+  });
+});
+
+describe("image housekeeping", () => {
+  it("removes image files that never became library images, and nothing else", async () => {
+    const orphan = keys.asset(PRO, "a".repeat(32), "png");
+    const kept = keys.asset(PRO, "b".repeat(32), "png");
+    await putObject(orphan, Buffer.from("half an upload"), "image/png");
+    await putObject(kept, Buffer.from("a real one"), "image/png");
+    await prisma.asset.create({ data: { userId: PRO, type: "IMAGE", key: kept, filename: "kept.png", mimeType: "image/png", size: 10 } });
+
+    const files = { list: listObjects, remove: deleteObject };
+    // Fresh files may still be uploading.
+    await removeOrphanAssets(prisma, files);
+    expect(await head(orphan)).not.toBeNull();
+
+    expect(await removeOrphanAssets(prisma, files, 0)).toBeGreaterThanOrEqual(1);
+    expect(await head(orphan)).toBeNull();
+    expect(await head(kept)).not.toBeNull();
   });
 });
 

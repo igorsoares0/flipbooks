@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, Redo2, Undo2 } from "lucide-react";
+import { ChevronLeft, Minus, Plus, Redo2, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { TypeBadge } from "@/components/ui/badges";
@@ -9,6 +9,7 @@ import { publishFlipbookAction } from "@/lib/actions/flipbooks";
 import type { FlipbookType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useEditor } from "../state/editor-context";
+import { ZOOM_STEPS } from "../state/editor-store";
 
 const iconButton = buttonClasses({ variant: "secondary", size: "icon" });
 
@@ -33,6 +34,55 @@ function SaveStatus() {
       <span className={cn("size-1.5 rounded-full", saveStatus === "saved" ? "bg-success" : "bg-warning")} />
       {saveStatus === "saved" ? "Saved" : "Saving…"}
     </span>
+  );
+}
+
+function ZoomControls() {
+  const zoom = useEditor((s) => s.zoom);
+  const fitScale = useEditor((s) => s.fitScale);
+  const zoomBy = useEditor((s) => s.zoomBy);
+  const setZoom = useEditor((s) => s.setZoom);
+  const scale = zoom === "fit" ? fitScale : zoom;
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative flex items-center gap-0.5 max-md:hidden" role="group" aria-label="Zoom">
+      <button className={iconButton} aria-label="Zoom out" title="Zoom out (Ctrl+-)" onClick={() => zoomBy(-1)}>
+        <Minus className="size-3.5" strokeWidth={1.6} />
+      </button>
+      <button
+        className="w-[52px] rounded-md py-[5px] text-center font-mono text-[11.5px] font-medium text-muted hover:bg-surface-sunken"
+        aria-label="Zoom level"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        onBlur={(e) => !e.currentTarget.parentElement?.contains(e.relatedTarget) && setOpen(false)}
+      >
+        {Math.round(scale * 100)}%
+      </button>
+      <button className={iconButton} aria-label="Zoom in" title="Zoom in (Ctrl++)" onClick={() => zoomBy(1)}>
+        <Plus className="size-3.5" strokeWidth={1.6} />
+      </button>
+      {open && (
+        <ul role="listbox" aria-label="Zoom presets" className="absolute top-full left-1/2 z-20 mt-1.5 w-[132px] -translate-x-1/2 rounded-[10px] border border-line bg-surface p-1 shadow-canvas">
+          {[["fit", "Fit to screen"] as const, ...ZOOM_STEPS.map((z) => [z, `${z * 100}%`] as const)].map(([value, label]) => (
+            <li key={label}>
+              <button
+                role="option"
+                aria-selected={zoom === value}
+                onClick={() => {
+                  setZoom(value);
+                  setOpen(false);
+                }}
+                className={cn("w-full rounded-md px-2.5 py-1.5 text-left text-[12.5px] hover:bg-surface-sunken", zoom === value && "font-semibold")}
+              >
+                {label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -92,6 +142,8 @@ export function EditorTopbar({
       <button className={iconButton} aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled={!canRedo} onClick={redo}>
         <Redo2 className="size-3.5" strokeWidth={1.6} />
       </button>
+      <div className="mx-1 h-5 w-px bg-line max-md:hidden" />
+      <ZoomControls />
       <div className="ml-auto flex items-center gap-3">
         <SaveStatus />
         {published ? (

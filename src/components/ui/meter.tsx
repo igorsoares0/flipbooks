@@ -1,9 +1,23 @@
 import { cn } from "@/lib/utils";
 
-export function Meter({ value, className, barClassName }: { value: number; className?: string; barClassName?: string }) {
+export function Meter({
+  value,
+  className,
+  barClassName,
+  label,
+}: {
+  value: number;
+  className?: string;
+  barClassName?: string;
+  /** Makes it an accessible progress bar with this name. */
+  label?: string;
+}) {
   const pct = Math.max(0, Math.min(1, value)) * 100;
   return (
-    <div className={cn("h-[5px] overflow-hidden rounded-[3px] bg-track", className)}>
+    <div
+      className={cn("h-[5px] overflow-hidden rounded-[3px] bg-track", className)}
+      {...(label ? { role: "progressbar", "aria-label": label, "aria-valuenow": Math.round(pct), "aria-valuemin": 0, "aria-valuemax": 100 } : {})}
+    >
       <div className={cn("h-full rounded-[3px] bg-accent", barClassName)} style={{ width: `${pct}%` }} />
     </div>
   );

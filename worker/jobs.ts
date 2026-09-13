@@ -73,3 +73,29 @@ export async function removeAbandonedUploads(
   }
   return stale.length;
 }
+
+/**
+ * Image files with no library row: uploads the browser never finished. They don't count
+ * against anyone's storage, so they must not pile up. Presigned uploads expire after 15
+ * minutes, so anything older than an hour is safe to remove.
+ */
+export async function removeOrphanAssets(
+  prisma: PrismaClient,
+  files: { list: (prefix: string) => Promise<{ key: string; lastModified: Date }[]>; remove: (key: string) => Promise<unknown> },
+  olderThanMs = 60 * 60_000,
+) {
+  const cutoff = Date.now() - olderThanMs;
+  const old = (await files.list("assets/")).filter((file) => file.lastModified.getTime() < cutoff);
+  let removed = 0;
+  for (let i = 0; i < old.length; i += 500) {
+    const chunk = old.slice(i, i + 500);
+    const rows = await prisma.asset.findMany({ where: { key: { in: chunk.map((f) => f.key) } }, select: { key: true } });
+    const known = new Set(rows.map((row) => row.key));
+    for (const file of chunk) {
+      if (known.has(file.key)) continue;
+      await files.remove(file.key).catch(() => undefined);
+      removed += 1;
+    }
+  }
+  return removed;
+}

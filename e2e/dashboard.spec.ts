@@ -90,6 +90,10 @@ test.describe("creating flipbooks", () => {
     await page.getByRole("button", { name: "Use the Menu template" }).click();
     await expect(page).toHaveURL(/\/dashboard\/flipbooks\/[^/]+\/editor$/);
     await expect(page.getByRole("button", { name: /^Page \d+$/ })).toHaveCount(8);
+    // Designed pages, not blank ones: the cover and an interior layout.
+    await expect(page.getByRole("button", { name: "Select Heading", exact: true })).toHaveText("The Menu");
+    await page.getByRole("button", { name: "Page 2", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Select Item 1", exact: true })).toHaveText("Burrata, peach, basil");
 
     await page.goto("/dashboard");
     await expect(page.getByText("Menu (from template)")).toBeVisible();

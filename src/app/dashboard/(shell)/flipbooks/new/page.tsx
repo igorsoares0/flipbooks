@@ -5,7 +5,7 @@ import { PdfDropzone } from "@/components/flipbook/pdf-dropzone";
 import { TemplateGallery } from "@/components/flipbook/template-gallery";
 import { createFlipbookAction } from "@/lib/actions/flipbooks";
 import { getBilling } from "@/lib/data";
-import { TEMPLATES } from "@/lib/templates";
+import { templatesWithCovers } from "@/lib/templates";
 
 export const metadata: Metadata = { title: "Create flipbook" };
 
@@ -35,11 +35,11 @@ export default async function CreateFlipbookPage() {
           <form action={createFlipbookAction}>
             <OpenEditorButton />
           </form>
-          <div className="mt-3 font-mono text-[10px] font-medium text-muted-3">CANVAS · KONVA + ZUSTAND</div>
+          <div className="mt-3 font-mono text-[10px] font-medium text-muted-3">CANVAS · AUTOSAVE + UNDO</div>
         </div>
       </div>
 
-      <TemplateGallery templates={TEMPLATES} />
+      <TemplateGallery templates={templatesWithCovers()} />
     </div>
   );
 }

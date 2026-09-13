@@ -38,28 +38,59 @@ export function elementBoxStyle(element: PageElement, page: Pick<Page, "width" |
   };
 }
 
-function TextContent({ element, page }: { element: TextElement; page: Page }) {
+/** Typography of a text element; shared with the editor's inline text editing. */
+export function textStyle(element: TextElement, page: Pick<Page, "width">): CSSProperties {
   const p = element.properties;
+  return {
+    fontFamily: FONT_FAMILY[p.fontFamily],
+    fontSize: scaled(p.fontSize, page),
+    fontWeight: p.fontWeight,
+    color: p.color,
+    textAlign: p.align,
+    lineHeight: p.lineHeight,
+    letterSpacing: scaled(p.letterSpacing, page),
+  };
+}
+
+export const TEXT_CLASS = "break-words whitespace-pre-wrap";
+
+function TextContent({ element, page }: { element: TextElement; page: Page }) {
   return (
-    <div
-      className="break-words whitespace-pre-wrap"
-      style={{
-        fontFamily: FONT_FAMILY[p.fontFamily],
-        fontSize: scaled(p.fontSize, page),
-        fontWeight: p.fontWeight,
-        color: p.color,
-        textAlign: p.align,
-        lineHeight: p.lineHeight,
-        letterSpacing: scaled(p.letterSpacing, page),
-      }}
-    >
-      {p.runs.map((run, i) => (run.italic ? <em key={i}>{run.text}</em> : <Fragment key={i}>{run.text}</Fragment>))}
+    <div className={TEXT_CLASS} style={textStyle(element, page)}>
+      {element.properties.runs.map((run, i) =>
+        run.italic ? <em key={i}>{run.text}</em> : <Fragment key={i}>{run.text}</Fragment>,
+      )}
     </div>
   );
 }
 
 function ImageContent({ element, page }: { element: ImageElement; page: Page }) {
-  const { placeholder } = element.properties;
+  const { placeholder, imageUrl, assetKey, fit } = element.properties;
+  if (imageUrl) {
+    return (
+      // Signed, short-lived URL (see PageCanvas below), so no Next image optimizer.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={imageUrl}
+        alt={element.name}
+        className="pointer-events-none size-full select-none"
+        style={{ objectFit: fit }}
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+      />
+    );
+  }
+  // An uploaded picture whose file is gone (deleted from the library).
+  if (assetKey) {
+    return (
+      <div className="flex size-full items-center justify-center bg-[repeating-linear-gradient(45deg,#EEEBE3_0_8px,#E6E2D8_8px_16px)]">
+        <span className="font-mono text-[rgba(23,21,15,.45)] @max-[160px]:hidden" style={{ fontSize: `max(6px, ${scaled(11, page)})` }}>
+          Image missing
+        </span>
+      </div>
+    );
+  }
   const centered = placeholder.labelPosition === "center";
   return (
     <div

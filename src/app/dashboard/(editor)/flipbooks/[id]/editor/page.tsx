@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { PlaceholderPage } from "@/components/dashboard/placeholder-page";
 import { ButtonLink } from "@/components/ui/button";
 import { Editor } from "@/editor/components/editor";
-import { getEditorDocument, getEntitlements } from "@/lib/data";
+import { getAssets, getEditorDocument, getEntitlements } from "@/lib/data";
 
 export async function generateMetadata({ params }: PageProps<"/dashboard/flipbooks/[id]/editor">): Promise<Metadata> {
   const doc = await getEditorDocument((await params).id);
@@ -36,6 +36,7 @@ export default async function EditorPage({ params }: PageProps<"/dashboard/flipb
     );
   }
 
+  const assets = await getAssets();
   return (
     <Editor
       key={id}
@@ -44,7 +45,9 @@ export default async function EditorPage({ params }: PageProps<"/dashboard/flipb
       type={doc.flipbook.type}
       slug={doc.flipbook.slug}
       published={doc.flipbook.status === "PUBLISHED"}
+      updatedAt={doc.flipbook.updatedAt}
       pages={doc.pages}
+      assets={assets.map(({ id, key, url, filename, width, height }) => ({ id, key, url, filename, width, height }))}
     />
   );
 }

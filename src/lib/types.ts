@@ -101,9 +101,12 @@ export interface TextElement extends ElementBase {
 export interface ImageElement extends ElementBase {
   type: "IMAGE";
   properties: {
+    /** Storage key of the user's uploaded picture (`assets/{userId}/…`); null for placeholders. */
     assetKey: string | null;
+    /** Short-lived signed URL for assetKey, resolved per request; never stored. */
+    imageUrl?: string | null;
     fit: "cover" | "contain";
-    /** Gradient shown until the asset is uploaded to R2. */
+    /** Gradient shown when there is no picture (or it was deleted). */
     placeholder: { from: string; to: string; label: string; labelPosition: "center" | "bottom-left" };
   };
 }

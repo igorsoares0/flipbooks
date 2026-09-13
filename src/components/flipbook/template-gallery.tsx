@@ -2,35 +2,30 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { PageCanvas } from "@/components/flipbook/page-canvas";
 import { createFlipbookAction } from "@/lib/actions/flipbooks";
-import type { Template, TemplateCategory } from "@/lib/types";
+import type { TemplateWithCover } from "@/lib/templates";
+import type { TemplateCategory } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const CATEGORIES: TemplateCategory[] = ["Magazines", "Catalogs", "Business", "Brochures", "Portfolios", "Reports", "Marketing"];
 
-function TemplateCard({ template }: { template: Template }) {
+function TemplateCard({ template }: { template: TemplateWithCover }) {
   const { pending } = useFormStatus();
   return (
     <button type="submit" disabled={pending} aria-label={`Use the ${template.name} template`} className="group w-full text-left disabled:cursor-wait">
-      <div
-        className={cn("relative aspect-[3/4] overflow-hidden rounded-[10px] border border-line group-hover:border-ink", pending && "opacity-60")}
-        style={{ background: template.tint }}
-      >
-        <div className="absolute inset-3 flex flex-col gap-1.5">
-          <div className="h-[34%] rounded bg-[rgba(23,21,15,.10)]" />
-          <div className="h-[7px] w-[72%] rounded-[3px] bg-[rgba(23,21,15,.28)]" />
-          <div className="h-[5px] w-[90%] rounded-[3px] bg-[rgba(23,21,15,.13)]" />
-          <div className="h-[5px] w-[80%] rounded-[3px] bg-[rgba(23,21,15,.13)]" />
-          <div className="mt-auto h-4 w-[44%] rounded-[3px] bg-[rgba(23,21,15,.16)]" />
-        </div>
-      </div>
+      {/* The template's real cover, rendered like any page. */}
+      <PageCanvas
+        page={template.cover}
+        className={cn("pointer-events-none rounded-[10px] border border-line group-hover:border-ink", pending && "opacity-60")}
+      />
       <div className="mt-2 text-[12.5px] font-semibold">{pending ? "Creating…" : template.name}</div>
       <div className="mt-0.5 text-[11px] text-muted-2">{template.pageCount} pages</div>
     </button>
   );
 }
 
-export function TemplateGallery({ templates }: { templates: Template[] }) {
+export function TemplateGallery({ templates }: { templates: TemplateWithCover[] }) {
   const [category, setCategory] = useState<TemplateCategory | null>(null);
   const visible = category ? templates.filter((t) => t.category === category) : templates;
 

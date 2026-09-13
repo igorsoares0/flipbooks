@@ -108,7 +108,8 @@ export async function saveDocumentAction(id: string, pages: unknown): Promise<Ac
 
   const saved = await mutations.saveDocument(user.id, id, parsed.data);
   if (saved === "not-found") return fail(NOT_FOUND);
-  if (saved === "foreign-file") return fail("The document could not be saved: invalid page image.");
-  revalidateFlipbook(id);
+  if (saved === "foreign-file") return fail("The document could not be saved: it uses an image that isn't yours.");
+  // No revalidatePath: it would re-render the whole editor on every autosave, and the
+  // dashboard and viewer pages are dynamic, so they read fresh data on the next visit.
   return { ok: true };
 }

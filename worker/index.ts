@@ -1,9 +1,17 @@
 import { createScriptClient } from "../prisma/client";
 import { sendEmail } from "../src/lib/email/send";
 import { processingDoneEmail, processingFailedEmail } from "../src/lib/email/templates";
-import { deletePrefix, keys } from "../src/lib/storage/s3";
+import { deleteObject, deletePrefix, keys, listObjects } from "../src/lib/storage/s3";
 import { describeFailure } from "./errors";
-import { claimNextJob, completeJob, failJob, removeAbandonedUploads, requeueStuckJobs, type ClaimedJob } from "./jobs";
+import {
+  claimNextJob,
+  completeJob,
+  failJob,
+  removeAbandonedUploads,
+  removeOrphanAssets,
+  requeueStuckJobs,
+  type ClaimedJob,
+} from "./jobs";
 import { renderPdfJob } from "./render-pdf";
 
 // PDF processing worker: polls processing_jobs and renders PDFs to page images.
@@ -72,11 +80,20 @@ async function slot(n: number) {
   }
 }
 
+// Listing every image in the bucket is costly, so orphaned images are checked hourly.
+const ASSET_SWEEP_MS = 60 * 60_000;
+let lastAssetSweep = 0;
+
 async function sweep() {
   try {
     const requeued = await requeueStuckJobs(prisma);
     const abandoned = await removeAbandonedUploads(prisma, (id) => deletePrefix(keys.prefix(id)));
-    if (requeued || abandoned) log("sweep", { requeued, abandoned });
+    let orphanImages = 0;
+    if (Date.now() - lastAssetSweep >= ASSET_SWEEP_MS) {
+      lastAssetSweep = Date.now();
+      orphanImages = await removeOrphanAssets(prisma, { list: listObjects, remove: deleteObject });
+    }
+    if (requeued || abandoned || orphanImages) log("sweep", { requeued, abandoned, orphanImages });
   } catch (error) {
     log("sweep.error", { error: String(error) });
   }

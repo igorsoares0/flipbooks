@@ -1,11 +1,13 @@
 "use client";
 
+import { Eye, EyeOff, Lock, LockOpen, Upload } from "lucide-react";
+import { useRef, useState } from "react";
+import { Meter } from "@/components/ui/meter";
 import { cn } from "@/lib/utils";
 import { useActivePage, useEditor } from "../state/editor-context";
 import type { ShapeKind } from "../state/editor-store";
+import { IMAGE_ACCEPT, useAssetUpload } from "./asset-upload";
 import { TOOLS } from "./tool-rail";
-
-const ASSET_TINTS = ["#D9D3C5", "#C6CFEA", "#E2D4CC", "#CFDCD3", "#DCD6C8", "#E4D9E2"];
 
 const tile = "rounded-[9px] border border-line hover:border-accent";
 
@@ -22,6 +24,7 @@ function TextPanel() {
       <button onClick={() => addText("body")} className={cn(tile, "p-[11px] text-left text-xs")}>
         Add body text
       </button>
+      <p className="mt-1 text-[11px] leading-normal text-muted-2">Double-click a text on the page to edit it. Ctrl+I makes a word italic.</p>
     </div>
   );
 }
@@ -44,25 +47,102 @@ function ShapesPanel() {
   );
 }
 
+/** The user's library; clicking a picture places it on the page. */
 function AssetGrid() {
+  const assets = useEditor((s) => s.assets);
+  const addImage = useEditor((s) => s.addImage);
+  if (assets.length === 0) return <p className="mt-3 text-[11.5px] text-muted-2">No images yet.</p>;
   return (
-    <div className="mt-3 grid grid-cols-2 gap-2">
-      {ASSET_TINTS.map((c) => (
-        <div key={c} className="aspect-square rounded-[7px]" style={{ background: c }} />
+    <ul className="mt-3 grid grid-cols-2 gap-2" aria-label="Your images">
+      {assets.map((asset) => (
+        <li key={asset.key}>
+          <button
+            onClick={() => addImage(asset)}
+            aria-label={`Add ${asset.filename}`}
+            title={asset.filename}
+            className="block aspect-square w-full overflow-hidden rounded-[7px] border border-line bg-surface-alt hover:border-accent"
+          >
+            {/* Signed storage URL, like page images. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={asset.url} alt="" className="size-full object-cover" loading="lazy" draggable={false} />
+          </button>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }
 
 function UploadsPanel() {
-  // Uploads to R2 arrive with the storage phase; the dropzone is visual for now.
+  const input = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const uploads = useEditor((s) => s.uploads);
+  const removeUpload = useEditor((s) => s.removeUpload);
+  const { upload } = useAssetUpload();
+
+  const pick = (files: FileList | null) => {
+    if (files?.length) void upload([...files]);
+  };
+
   return (
     <div>
-      <div className="rounded-[10px] border-[1.5px] border-dashed border-line-strong px-3 py-[18px] text-center text-[11.5px] text-muted hover:border-accent">
-        Drop images here
-        <br />
-        <span className="text-muted-3">JPG · PNG · WebP · SVG</span>
-      </div>
+      <button
+        type="button"
+        onClick={() => input.current?.click()}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          pick(e.dataTransfer.files);
+        }}
+        className={cn(
+          "flex w-full flex-col items-center gap-1.5 rounded-[10px] border-[1.5px] border-dashed px-3 py-[18px] text-center text-[11.5px] text-muted hover:border-accent",
+          dragging ? "border-accent bg-accent-soft" : "border-line-strong",
+        )}
+      >
+        <Upload className="size-4" strokeWidth={1.5} />
+        Upload or drop images
+        <span className="text-muted-3">JPG · PNG · WebP, up to 15 MB</span>
+      </button>
+      <input
+        ref={input}
+        type="file"
+        accept={IMAGE_ACCEPT}
+        multiple
+        hidden
+        aria-label="Upload images"
+        onChange={(e) => {
+          pick(e.target.files);
+          e.target.value = "";
+        }}
+      />
+
+      {uploads.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-2" aria-label="Uploads in progress">
+          {uploads.map((item) => (
+            <li key={item.id} className="text-[11px]">
+              <div className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate">{item.filename}</span>
+                {item.error && (
+                  <button onClick={() => removeUpload(item.id)} className="text-muted-2 hover:text-ink">
+                    Dismiss
+                  </button>
+                )}
+              </div>
+              {item.error ? (
+                <p role="alert" className="mt-0.5 text-danger">
+                  {item.error}
+                </p>
+              ) : (
+                <Meter value={item.progress} className="mt-1" label={`Uploading ${item.filename}`} />
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       <AssetGrid />
     </div>
   );
@@ -70,27 +150,46 @@ function UploadsPanel() {
 
 function LayersPanel() {
   const page = useActivePage();
-  const selectedId = useEditor((s) => s.selectedId);
+  const selectedIds = useEditor((s) => s.selectedIds);
   const select = useEditor((s) => s.select);
+  const toggleLock = useEditor((s) => s.toggleLock);
+  const toggleVisible = useEditor((s) => s.toggleVisible);
   const layers = page.elements.toSorted((a, b) => b.zIndex - a.zIndex);
 
   if (layers.length === 0) return <p className="text-[11.5px] text-muted-2">This page is empty.</p>;
   return (
-    <ul className="flex flex-col gap-1">
-      {layers.map((el) => (
-        <li key={el.id}>
-          <button
-            onClick={() => select(el.id)}
-            className={cn(
-              "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs",
-              el.id === selectedId ? "bg-surface-alt font-semibold" : "hover:bg-surface-sunken",
-            )}
-          >
-            <span className="flex-1 truncate">{el.name}</span>
-            <span className="font-mono text-[9.5px] text-muted-3">{el.type}</span>
-          </button>
-        </li>
-      ))}
+    <ul className="flex flex-col gap-1" aria-label="Layers">
+      {layers.map((el) => {
+        const selected = selectedIds.includes(el.id);
+        return (
+          <li key={el.id} className={cn("group flex items-center rounded-lg", selected ? "bg-surface-alt" : "hover:bg-surface-sunken")}>
+            <button
+              onClick={(e) => select(el.id, { additive: e.shiftKey || e.metaKey || e.ctrlKey })}
+              aria-pressed={selected}
+              className={cn("flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left text-xs", selected && "font-semibold", !el.visible && "text-muted-3")}
+            >
+              <span className="flex-1 truncate">{el.name}</span>
+              <span className="font-mono text-[9.5px] text-muted-3">{el.type}</span>
+            </button>
+            <button
+              onClick={() => toggleLock(el.id)}
+              aria-label={el.locked ? `Unlock ${el.name}` : `Lock ${el.name}`}
+              aria-pressed={el.locked}
+              className={cn("p-1 text-muted-2 hover:text-ink", !el.locked && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100")}
+            >
+              {el.locked ? <Lock className="size-3" /> : <LockOpen className="size-3" />}
+            </button>
+            <button
+              onClick={() => toggleVisible(el.id)}
+              aria-label={el.visible ? `Hide ${el.name}` : `Show ${el.name}`}
+              aria-pressed={!el.visible}
+              className={cn("p-1 pr-2 text-muted-2 hover:text-ink", el.visible && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100")}
+            >
+              {el.visible ? <Eye className="size-3" /> : <EyeOff className="size-3" />}
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }

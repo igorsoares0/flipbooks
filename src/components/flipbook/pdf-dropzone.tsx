@@ -8,6 +8,7 @@ import { Meter } from "@/components/ui/meter";
 import { deleteFlipbookAction } from "@/lib/actions/flipbooks";
 import { finishPdfUpload, startPdfUpload } from "@/lib/actions/uploads";
 import { formatMb } from "@/lib/format";
+import { putWithProgress } from "@/lib/upload-client";
 import { cn } from "@/lib/utils";
 
 // Upload states were a gap in the design handoff; they reuse the "From PDF" card's tokens.
@@ -24,21 +25,6 @@ export function checkPdfFile(file: Pick<File, "name" | "type" | "size">, maxByte
   if (file.size === 0) return "That file is empty.";
   if (file.size > maxBytes) return `That file is ${formatMb(file.size)}. Your plan allows PDFs up to ${maxBytes / 1e6} MB.`;
   return null;
-}
-
-/** PUTs the file straight to storage, reporting progress. Resolves false if cancelled. */
-function putWithProgress(url: string, file: File, contentType: string, onProgress: (ratio: number) => void, xhrRef: { current: XMLHttpRequest | null }) {
-  return new Promise<boolean>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhrRef.current = xhr;
-    xhr.open("PUT", url);
-    xhr.setRequestHeader("Content-Type", contentType);
-    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve(true) : reject(new Error(`Storage answered ${xhr.status}`)));
-    xhr.onerror = () => reject(new Error("The connection dropped during the upload."));
-    xhr.onabort = () => resolve(false);
-    xhr.send(file);
-  });
 }
 
 export function PdfDropzone({ maxBytes, maxPages, planName }: { maxBytes: number; maxPages: number; planName: string }) {

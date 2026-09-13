@@ -5,6 +5,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { DEFAULT_SETTINGS, PAGE_HEIGHT, PAGE_WIDTH, slugify } from "@/lib/flipbook-rules";
 import { copyPrefix, deletePrefix, keys } from "@/lib/storage";
+import { buildTemplatePages } from "@/lib/templates";
 import type { Template } from "@/lib/types";
 import type { DocumentInput, FlipbookPatch } from "@/lib/validation";
 import { toFlipbook } from "./mappers";
@@ -39,8 +40,11 @@ export async function uniqueSlug(title: string) {
 
 export async function createFlipbook(userId: string, { template }: { template?: Template } = {}) {
   const title = template ? `${template.name} (from template)` : "Untitled flipbook";
-  const pageCount = template?.pageCount ?? 1;
   const tint = COVER_TINTS[Math.floor(Math.random() * COVER_TINTS.length)];
+  // A template's designed pages, or one blank page. The database assigns fresh ids.
+  const pages = template
+    ? buildTemplatePages(template.id, "new")
+    : [{ pageNumber: 1, width: PAGE_WIDTH, height: PAGE_HEIGHT, background: { color: "#FFFFFF" }, elements: [] }];
 
   const flipbook = await prisma.flipbook.create({
     data: {
@@ -52,13 +56,19 @@ export async function createFlipbook(userId: string, { template }: { template?: 
       visibility: "PRIVATE",
       settings: { ...DEFAULT_SETTINGS },
       thumbnailTint: tint,
-      pageCount,
+      pageCount: pages.length,
       pages: {
-        create: Array.from({ length: pageCount }, (_, i) => ({
-          pageNumber: i + 1,
-          width: PAGE_WIDTH,
-          height: PAGE_HEIGHT,
-          background: { color: template?.tint ?? "#FFFFFF" },
+        create: pages.map((page) => ({
+          pageNumber: page.pageNumber,
+          width: page.width,
+          height: page.height,
+          background: { ...page.background },
+          elements: {
+            create: page.elements.map(({ id: _id, pageId: _pageId, properties, ...el }) => ({
+              ...el,
+              properties: properties as unknown as Prisma.InputJsonValue,
+            })),
+          },
         })),
       },
     },
@@ -162,9 +172,17 @@ export async function saveDocument(userId: string, id: string, pages: DocumentIn
     select: { pages: { select: { id: true } } },
   });
   if (!owned) return "not-found";
-  // Page images can only point at this flipbook's own files, never at another account's.
+  // Page images can only point at this flipbook's own files, and pictures only at the
+  // caller's own uploads, never at another account's.
   if (pages.some((page) => page.backgroundImageKey && !page.backgroundImageKey.startsWith(keys.prefix(id)))) {
     return "foreign-file";
+  }
+  const assetKeys = new Set(
+    pages.flatMap((page) => page.elements.flatMap((el) => (el.type === "IMAGE" && el.properties.assetKey ? [el.properties.assetKey] : []))),
+  );
+  if (assetKeys.size > 0) {
+    const owned = await prisma.asset.count({ where: { userId, key: { in: [...assetKeys] } } });
+    if (owned !== assetKeys.size) return "foreign-file";
   }
 
   const existing = new Set(owned.pages.map((p) => p.id));

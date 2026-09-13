@@ -1,18 +1,6 @@
-import type { Page } from "@playwright/test";
 import { cloneFlipbook, getFlipbookRow } from "./db";
+import { openOwnCopy, properties, saved, selectionName } from "./editor-helpers";
 import { expect, signedOut, signInAsNewUser, test } from "./fixtures";
-
-const properties = (page: Page) => page.getByRole("complementary", { name: "Properties" });
-const selectionName = (page: Page) => properties(page).getByRole("heading");
-const saved = (page: Page) => expect(page.getByText("Saved", { exact: true })).toBeVisible();
-
-/** Every editor test edits its own copy of the Summer Catalog, owned by a fresh user. */
-async function openOwnCopy(page: Page) {
-  const user = await signInAsNewUser(page);
-  const book = await cloneFlipbook("fb_8Kd2", user.id);
-  await page.goto(`/dashboard/flipbooks/${book.id}/editor`);
-  return book;
-}
 
 test.describe("editor", () => {
   test("opens with the heading selected", async ({ page }) => {
@@ -26,12 +14,12 @@ test.describe("editor", () => {
     await openOwnCopy(page);
     await page.getByRole("button", { name: "Select Cover image" }).click();
     await expect(selectionName(page)).toHaveText("Cover image");
-    await expect(properties(page).getByText("IMAGE", { exact: true })).toBeVisible();
+    await expect(properties(page).getByRole("button", { name: "Replace image" })).toBeVisible();
     await expect(properties(page).getByText("TYPOGRAPHY")).toBeHidden();
 
     await page.getByRole("button", { name: "Select Ellipse" }).click();
     await expect(selectionName(page)).toHaveText("Ellipse");
-    await expect(properties(page).getByText("356")).toBeVisible();
+    await expect(properties(page).getByLabel("X", { exact: true })).toHaveValue("356");
   });
 
   test("clicking the artboard background selects the page", async ({ page }) => {
@@ -46,7 +34,7 @@ test.describe("editor", () => {
     const book = await openOwnCopy(page);
     await page.getByRole("button", { name: "Add page" }).click();
     await expect(page.getByText("Saving…")).toBeVisible();
-    await expect(selectionName(page)).toHaveText("Page 65");
+    await expect(selectionName(page)).toHaveText("Page 2"); // inserted after the current page
     await saved(page);
     expect((await getFlipbookRow(book.id))?._count.pages).toBe(65);
 

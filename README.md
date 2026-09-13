@@ -71,11 +71,40 @@ The e2e suite builds the app and starts its own server on port 3100, pointed at 
 - `src/lib/actions`: server actions. Each one authenticates, validates with zod (`src/lib/validation.ts`), then checks ownership and the plan.
 - `src/lib/auth`: Better Auth config, session helpers, safe post-login redirects. `src/proxy.ts` does only an optimistic cookie check.
 - `src/lib/entitlements`: what each plan can do. Code checks capabilities (`canUseCanvasEditor`…), never plan names.
-- `src/editor`: the canvas editor (Zustand store with undo/redo and debounced autosave).
+- `src/editor`: the canvas editor (see [Editor](#editor)).
 - `src/components/flipbook/page-canvas.tsx`: renders any page at any size (editor, viewer, thumbnails).
 - `src/lib/storage`: the S3 client (presigned uploads and downloads, object keys). Files stay private; pages get short-lived signed URLs after the access check.
-- `worker/`: the PDF worker. It claims jobs from the `processing_jobs` table (`FOR UPDATE SKIP LOCKED`), renders pages and thumbnails, retries transient failures with backoff, and sweeps stuck jobs and abandoned uploads.
+- `worker/`: the PDF worker. It claims jobs from the `processing_jobs` table (`FOR UPDATE SKIP LOCKED`), renders pages and thumbnails, retries transient failures with backoff, and sweeps stuck jobs, abandoned uploads and image files that never made it into a library.
 - `prisma/`: schema, migrations, seed and demo content.
+
+## Editor
+
+The canvas editor renders pages with HTML, not Konva as the spec first suggested. It uses `PageCanvas`, the same component as the viewer, embeds and thumbnails, so what you see while editing is exactly what readers get, down to where text wraps. Konva draws text on a canvas with its own line breaking, which would never quite match the reader's HTML. Inline text editing with `contentEditable` also comes for free.
+
+- `state/editor-store.ts`: the document, selection, zoom and upload progress in one Zustand store per editor. A drag is one undo step (`beginGesture`/`endGesture`). Typing in a property field merges into one step. Every change is autosaved after 800 ms. Saves are versioned, so a slow response never marks newer edits as saved.
+- `state/recovery.ts`: every edit is also kept in `localStorage` until the server confirms it. If a tab closes or saves keep failing, the next visit offers to restore the edits.
+- `geometry.ts`: pure resize, rotate and snap math, in page units and independent of zoom.
+- `components/transform-layer.tsx`: the selection frame, handles and snap guides, drawn over the page.
+- `text/runs.ts`: converts between stored text runs and the editing HTML. Only text, italic and line breaks survive, so no HTML is ever stored.
+
+Pictures come from the user's library (`/dashboard/assets`). The browser uploads them straight to storage under `assets/{userId}/`. The server then checks the key's owner, the real file type from its first bytes, the size and the pixel dimensions. Autosave refuses any picture that isn't in the caller's own library.
+
+Keyboard shortcuts:
+
+| Keys | Action |
+| --- | --- |
+| Double-click, or Enter | Edit the selected text |
+| Ctrl+I (while editing) | Italic |
+| Esc | Stop editing, then clear the selection |
+| Arrows / Shift+arrows | Nudge 1 / 10 units |
+| Shift+click | Add to or remove from the selection |
+| Ctrl+C / Ctrl+V / Ctrl+D | Copy / paste / duplicate |
+| Delete | Delete the selection |
+| Ctrl+Z / Ctrl+Shift+Z | Undo / redo |
+| Ctrl+= / Ctrl+- / Ctrl+0 | Zoom in / out / fit |
+| Shift while resizing / rotating | Toggle keeping proportions (on by default for pictures) / 15° steps |
+| Alt while dragging | Don't snap |
+| Alt+←/→ on a page thumbnail | Move the page |
 
 ## Deploying
 

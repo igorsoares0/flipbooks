@@ -7,6 +7,7 @@ import { DEMO_AVG_READ_SECONDS, demoAnalytics } from "@/lib/analytics/demo";
 import { getOptionalUser, requireUser } from "@/lib/auth/session";
 import { hasPages } from "@/lib/flipbook-rules";
 import type { AnalyticsRange, Billing } from "@/lib/types";
+import * as assetRepo from "./assets";
 import * as repo from "./flipbooks";
 
 export const isViewable = hasPages;
@@ -42,6 +43,11 @@ export async function getEditorDocument(id: string) {
   const flipbook = await getFlipbook(id);
   if (!flipbook || !hasPages(flipbook)) return null;
   return { flipbook, pages: await repo.getPages(id) };
+}
+
+/** The signed-in user's image library, newest first, with signed URLs. */
+export async function getAssets() {
+  return assetRepo.listAssets((await requireUser()).id);
 }
 
 export async function getDashboardStats() {
