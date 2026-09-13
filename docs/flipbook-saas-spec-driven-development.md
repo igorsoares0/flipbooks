@@ -62,9 +62,11 @@ Não utilizar FastAPI no MVP.
 
 ## Autenticação
 
-- Auth.js
+- Better Auth
 - Google OAuth
 - Email + senha
+
+> Decisão (fase 2): Better Auth no lugar de Auth.js, com o adapter do Prisma.
 
 ## Database
 
@@ -117,9 +119,10 @@ Responsável principalmente por:
 ## Editor
 
 - React
-- Konva.js
-- React-Konva
+- Renderização HTML, com o mesmo componente de página do viewer (`PageCanvas`)
 - Zustand para estado do editor
+
+> Decisão (fase 4): o editor não usa Konva. Ele renderiza as páginas com o mesmo componente HTML do viewer, do embed e das thumbnails, então o que se vê no editor é exatamente o que o leitor vê, inclusive a quebra de linha do texto. Com Konva o texto seria desenhado num canvas, com quebra de linha própria, diferente do viewer. A edição de texto inline usa `contentEditable`.
 
 ---
 
@@ -139,7 +142,7 @@ Responsável principalmente por:
              ┌────────────────┼─────────────────┐
              │                │                 │
              ▼                ▼                 ▼
-          Auth.js           Prisma            Resend
+        Better Auth         Prisma            Resend
                               │
                               ▼
                            Neon DB
@@ -411,7 +414,7 @@ Estrutura recomendada:
 /flipbooks/{flipbookId}/thumbnails/001.webp
 /flipbooks/{flipbookId}/thumbnails/002.webp
 
-/assets/{userId}/{assetId}
+/assets/{userId}/{assetId}.{ext}
 ```
 
 ## Regras
@@ -522,7 +525,7 @@ Utilizar:
 ```text
 React
 +
-React-Konva
+HTML (PageCanvas, o mesmo renderer do viewer)
 +
 Zustand
 ```
@@ -534,14 +537,16 @@ User interaction
       ↓
 Zustand
       ↓
-Konva rendering
+HTML rendering (PageCanvas + camada de transformação)
       ↓
 Debounced autosave
       ↓
-Next.js API
+Server Action
       ↓
 Prisma
 ```
+
+A geometria dos elementos é guardada em unidades da página; o `PageCanvas` converte para porcentagens e unidades de container query, então o mesmo documento renderiza igual em qualquer tamanho. Seleção, alças de redimensionar/girar e guias de alinhamento ficam numa camada separada, desenhada por cima da página.
 
 ---
 
@@ -671,8 +676,9 @@ O usuário poderá fazer upload de:
 
 - JPG;
 - PNG;
-- WebP;
-- SVG, se suportado com segurança.
+- WebP.
+
+SVG fica fora por enquanto: pode conter scripts e exigiria sanitização. O servidor confere o tipo real pelos primeiros bytes do arquivo, o tamanho (até 15 MB) e as dimensões, e o autosave recusa imagens que não sejam da biblioteca do próprio usuário.
 
 Fluxo:
 
@@ -925,7 +931,7 @@ Não coletar dados pessoais desnecessários.
 
 # 27. Autenticação
 
-Utilizar Auth.js.
+Utilizar Better Auth.
 
 Métodos:
 
@@ -1060,7 +1066,7 @@ User
 - updatedAt
 ```
 
-Auth.js adicionará os modelos necessários de account/session conforme configuração.
+O Better Auth adiciona os modelos necessários de account/session/verification conforme configuração.
 
 ## Flipbook
 
@@ -1194,7 +1200,9 @@ ProcessingJob
 
 A implementação pode utilizar Server Actions e Route Handlers conforme o caso.
 
-Principais operações:
+> Implementação atual: as operações do app são Server Actions (`src/lib/actions`). Route Handlers existem só onde é preciso uma URL HTTP: auth (`/api/auth/*`) e download do PDF original (`/api/flipbooks/:id/download`). O webhook do Paddle e a coleta de analytics serão Route Handlers.
+
+Operações de referência:
 
 ```text
 POST   /api/flipbooks
@@ -1494,7 +1502,7 @@ Requisitos:
 ## Fase 1 — MVP
 
 ```text
-✓ Auth.js
+✓ Better Auth
 ✓ Google login
 ✓ Email/password
 ✓ Dashboard
@@ -1509,6 +1517,7 @@ Requisitos:
 ✓ Shapes
 ✓ Pages
 ✓ Templates básicos
+✓ Asset library (antecipada da Fase 2)
 ✓ Autosave
 ✓ Undo/Redo
 ✓ Public URL
@@ -1527,7 +1536,6 @@ Password protected flipbooks
 Download controls
 Better sharing
 More templates
-Asset library
 PDF + Canvas hybrid editing
 ```
 
