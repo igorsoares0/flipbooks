@@ -1,10 +1,11 @@
 import "server-only";
 
-import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
-import { resolveEntitlements } from "@/lib/entitlements";
+import { monthlyViews, readerStats } from "@/lib/analytics/summary";
+import { grantingSubscriptionWhere, resolveEntitlements } from "@/lib/entitlements";
+import { effectiveSettings } from "@/lib/entitlements/policy";
 import { hasPages } from "@/lib/flipbook-rules";
-import type { DashboardStats, Entitlements, Plan, Usage } from "@/lib/types";
+import type { DashboardStats, Entitlements, Plan, SubscriptionSummary, Usage } from "@/lib/types";
 import { toFlipbook, toPage } from "./mappers";
 import { withPageImageUrls, withThumbnailUrl } from "./urls";
 
@@ -37,7 +38,9 @@ export async function getOwnedFlipbook(userId: string, id: string) {
 export async function getReadableFlipbook(by: { slug: string } | { id: string }, viewerId?: string | null) {
   const row = await prisma.flipbook.findUnique({ where: "slug" in by ? { slug: by.slug } : { id: by.id } });
   if (!row) return null;
-  const flipbook = toFlipbook(row);
+  const owned = toFlipbook(row);
+  // Readers (and the owner's preview) see what the owner's current plan allows.
+  const flipbook = { ...owned, settings: effectiveSettings(owned.settings, await getEntitlements(row.userId)) };
   if (viewerId && viewerId === row.userId) return hasPages(flipbook) ? withThumbnailUrl(flipbook, row) : null;
   if (row.status !== "PUBLISHED" || row.visibility === "PRIVATE" || row.pageCount === 0) return null;
   return withThumbnailUrl(flipbook, row);
@@ -66,16 +69,24 @@ export async function getTopFlipbook(userId: string) {
   return row ? toFlipbook(row) : null;
 }
 
-export async function getPlan(userId: string): Promise<{ plan: Plan; purchasedAt: string | null; expiresAt: string | null }> {
+type PlanState = { plan: Plan; subscription: SubscriptionSummary | null };
+
+/** The plan the user has right now, and the subscription granting it. */
+export async function getPlan(userId: string): Promise<PlanState> {
   const subscription = await prisma.subscription.findFirst({
-    where: { userId, status: "ACTIVE", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+    where: { userId, ...grantingSubscriptionWhere() },
     orderBy: { createdAt: "desc" },
   });
-  if (!subscription) return { plan: "FREE", purchasedAt: null, expiresAt: null };
+  if (!subscription) return { plan: "FREE", subscription: null };
   return {
     plan: subscription.plan,
-    purchasedAt: subscription.createdAt.toISOString(),
-    expiresAt: subscription.expiresAt?.toISOString() ?? null,
+    subscription: {
+      interval: subscription.interval,
+      status: subscription.status,
+      currentPeriodEnd: (subscription.currentPeriodEnd ?? subscription.expiresAt)?.toISOString() ?? null,
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      managedByPaddle: Boolean(subscription.paddleSubscriptionId),
+    },
   };
 }
 
@@ -84,39 +95,38 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
 }
 
 export async function getUsage(userId: string): Promise<Usage> {
-  const readable: Prisma.FlipbookWhereInput = { userId, type: "PDF", status: { in: ["DRAFT", "READY", "PUBLISHED"] } };
-  const [pdfs, assets, processed] = await Promise.all([
+  const [flipbooks, pdfs, assets, views] = await Promise.all([
+    prisma.flipbook.count({ where: { userId } }),
     prisma.flipbook.aggregate({ where: { userId }, _sum: { fileSize: true } }),
     prisma.asset.aggregate({ where: { userId }, _sum: { size: true } }),
-    prisma.flipbook.aggregate({ where: readable, _sum: { pageCount: true } }),
+    monthlyViews(userId),
   ]);
   return {
+    flipbooks,
     storageBytes: (pdfs._sum.fileSize ?? 0) + (assets._sum.size ?? 0),
-    pagesProcessed: processed._sum.pageCount ?? 0,
-    // Tracked from the analytics phase on.
-    monthlyViews: 0,
-    bandwidthBytes: 0,
+    monthlyViews: views,
   };
 }
 
-export async function getDashboardStats(userId: string, avgReadSeconds: number): Promise<DashboardStats> {
+export async function getDashboardStats(userId: string): Promise<DashboardStats> {
   const monthStart = new Date();
   monthStart.setUTCDate(1);
   monthStart.setUTCHours(0, 0, 0, 0);
 
-  const [flipbookCount, publishedThisMonth, views, usage, entitlements] = await Promise.all([
+  const [flipbookCount, publishedThisMonth, views, usage, entitlements, readers] = await Promise.all([
     prisma.flipbook.count({ where: { userId } }),
     prisma.flipbook.count({ where: { userId, status: "PUBLISHED", publishedAt: { gte: monthStart } } }),
     prisma.flipbook.aggregate({ where: { userId }, _sum: { viewCount: true } }),
     getUsage(userId),
     getEntitlements(userId),
+    readerStats(userId),
   ]);
   return {
     flipbookCount,
     publishedThisMonth,
     totalViews: views._sum.viewCount ?? 0,
-    viewsDelta: 0,
-    avgReadSeconds,
+    viewsDelta: readers.viewsDelta,
+    avgReadSeconds: readers.avgReadSeconds,
     storageBytes: usage.storageBytes,
     storageLimitBytes: entitlements.maxStorageBytes,
   };

@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_PADDLE_WEBHOOK_SECRET } from "./e2e/paddle";
 import { TEST_DATABASE_URL } from "./tests/reset-test-db";
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
@@ -31,6 +32,11 @@ const TEST_ENV = {
   S3_ACCESS_KEY_ID: "flipbook",
   S3_SECRET_ACCESS_KEY: "flipbook-secret",
   S3_FORCE_PATH_STYLE: "true",
+  // Webhooks are simulated with signed requests (e2e/billing.spec.ts); checkout itself isn't
+  // configured, so the upgrade button explains that billing isn't set up.
+  PADDLE_WEBHOOK_SECRET: E2E_PADDLE_WEBHOOK_SECRET,
+  PADDLE_API_KEY: "",
+  NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "",
 };
 
 export default defineConfig({

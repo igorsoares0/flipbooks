@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { PageCanvas } from "@/components/flipbook/page-canvas";
@@ -40,10 +41,10 @@ type ToggleKey = Exclude<keyof Settings, "backgroundColor" | "accentColor">;
 const TOGGLES: { key: ToggleKey; label: string; sub: string }[] = [
   { key: "showLogo", label: "Show your logo", sub: "Top-left of the viewer" },
   { key: "showShare", label: "Share button", sub: "Copy link, social targets" },
-  { key: "showDownload", label: "Allow PDF download", sub: "Readers can save the file" },
+  { key: "showDownload", label: "Allow PDF download", sub: "Readers can save the file · Pro" },
   { key: "showFullscreen", label: "Fullscreen button", sub: "Expands the spread" },
   { key: "showThumbnails", label: "Thumbnail strip", sub: "Jump to any page" },
-  { key: "showBranding", label: "Powered by Flipbook", sub: "Lifetime plan can hide it" },
+  { key: "showBranding", label: "Powered by Flipbook", sub: "Pro can hide it" },
 ];
 
 const SAVE_DELAY = 700;
@@ -209,6 +210,7 @@ export function FlipbookSettings({
   embedUrl,
   canRemoveBranding,
   canUseCustomSlug,
+  canOfferDownload,
   initialTab,
 }: {
   flipbook: {
@@ -229,6 +231,7 @@ export function FlipbookSettings({
   embedUrl: string;
   canRemoveBranding: boolean;
   canUseCustomSlug: boolean;
+  canOfferDownload: boolean;
   initialTab: SettingsTab;
 }) {
   const [tab, setTab] = useState(initialTab);
@@ -435,7 +438,7 @@ export function FlipbookSettings({
                     {slugMessage ??
                       (canUseCustomSlug
                         ? "Changing the address breaks links you have already shared."
-                        : "Custom addresses are part of the Lifetime Deal.")}
+                        : "Custom addresses are part of Pro.")}
                   </p>
                 </div>
                 <label className="block">
@@ -522,7 +525,7 @@ export function FlipbookSettings({
                 <div className="mb-3 text-[11.5px] text-muted-2">What readers see around the pages.</div>
                 <div className="flex flex-col">
                   {TOGGLES.map((t) => {
-                    const locked = t.key === "showBranding" && !canRemoveBranding;
+                    const locked = (t.key === "showBranding" && !canRemoveBranding) || (t.key === "showDownload" && !canOfferDownload);
                     return (
                       <div key={t.key} className="flex items-center gap-3 border-t border-line-soft py-2.5">
                         <div className="min-w-0 flex-1">
@@ -606,9 +609,16 @@ export function FlipbookSettings({
             <LiveViewerPreview title={title} settings={settings} pages={previewPages} pageCount={pageCount} />
           </div>
           <p className="mt-2.5 text-[11.5px] leading-normal text-muted-2">
-            {canRemoveBranding
-              ? "Lifetime plan lets you remove the Flipbook badge."
-              : "Upgrade to the Lifetime Deal to remove the Flipbook badge."}
+            {canRemoveBranding ? (
+              "Pro lets you remove the Flipbook badge."
+            ) : (
+              <>
+                <Link href="/dashboard/billing?upgrade=branding" className="font-semibold text-ink underline underline-offset-2">
+                  Upgrade to Pro
+                </Link>{" "}
+                to remove the Flipbook badge.
+              </>
+            )}
           </p>
         </aside>
       </div>

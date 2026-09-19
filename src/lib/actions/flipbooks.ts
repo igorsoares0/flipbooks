@@ -5,8 +5,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth/session";
 import * as mutations from "@/lib/data/flipbook-mutations";
-import { getEntitlements, getOwnedFlipbook } from "@/lib/data/flipbooks";
-import { patchViolation, UPGRADE_MESSAGES } from "@/lib/entitlements/policy";
+import { countFlipbooks, getEntitlements, getOwnedFlipbook } from "@/lib/data/flipbooks";
+import { flipbookLimitViolation, pageLimitViolation, patchViolation, UPGRADE_MESSAGES } from "@/lib/entitlements/policy";
 import { slugProblem } from "@/lib/flipbook-rules";
 import { findTemplate } from "@/lib/templates";
 import { documentSchema, flipbookPatchSchema } from "@/lib/validation";
@@ -29,11 +29,11 @@ function revalidateFlipbook(id: string) {
 export async function createFlipbookAction(formData: FormData) {
   const user = await requireUser();
   const entitlements = await getEntitlements(user.id);
-  if (!entitlements.canUseCanvasEditor) redirect("/dashboard/billing?upgrade=canvas");
+  if (flipbookLimitViolation(entitlements, await countFlipbooks(user.id))) redirect("/dashboard/billing?upgrade=flipbooks");
 
   const templateId = formData.get("templateId");
   const template = typeof templateId === "string" ? findTemplate(templateId) : undefined;
-  const flipbook = await mutations.createFlipbook(user.id, { template });
+  const flipbook = await mutations.createFlipbook(user.id, { template, maxPages: entitlements.maxPagesPerFlipbook });
   revalidatePath("/dashboard", "layout");
   redirect(`/dashboard/flipbooks/${flipbook.id}/editor`);
 }
@@ -86,6 +86,8 @@ export async function publishFlipbookAction(id: string): Promise<ActionResult> {
 export async function duplicateFlipbookAction(id: string): Promise<ActionResult> {
   const user = await requireUser();
   if (!idSchema.safeParse(id).success) return fail("Invalid input.");
+  const overLimit = flipbookLimitViolation(await getEntitlements(user.id), await countFlipbooks(user.id));
+  if (overLimit) return fail(overLimit);
   if (!(await mutations.duplicateFlipbook(user.id, id))) return fail(NOT_FOUND);
   revalidatePath("/dashboard", "layout");
   return { ok: true };
@@ -104,7 +106,13 @@ export async function saveDocumentAction(id: string, pages: unknown): Promise<Ac
   const user = await requireUser();
   const parsed = documentSchema.safeParse(pages);
   if (!idSchema.safeParse(id).success || !parsed.success) return fail("The document could not be saved: invalid data.");
-  if (!(await getEntitlements(user.id)).canUseCanvasEditor) return fail(UPGRADE_MESSAGES.canvas);
+  const entitlements = await getEntitlements(user.id);
+  if (!entitlements.canUseCanvasEditor) return fail("The canvas editor isn't part of your plan.");
+  // Books longer than the limit (made before a downgrade) stay editable; they just can't grow.
+  const existing = await getOwnedFlipbook(user.id, id);
+  if (!existing) return fail(NOT_FOUND);
+  const tooLong = parsed.data.length > existing.pageCount ? pageLimitViolation(entitlements, parsed.data.length) : null;
+  if (tooLong) return fail(tooLong);
 
   const saved = await mutations.saveDocument(user.id, id, parsed.data);
   if (saved === "not-found") return fail(NOT_FOUND);

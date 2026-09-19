@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { FlipbookSettings, type SettingsTab } from "@/components/flipbook/flipbook-settings";
 import { getEntitlements, getFlipbook, getFlipbookPages } from "@/lib/data";
+import { effectiveSettings } from "@/lib/entitlements/policy";
 import { embedFlipbookUrl, siteUrl } from "@/lib/site";
 
 const TABS: SettingsTab[] = ["general", "branding", "share"];
@@ -32,7 +33,8 @@ export default async function FlipbookSettingsPage({ params, searchParams }: Pag
         status: flipbook.status,
         type: flipbook.type,
         error: flipbook.error,
-        settings: flipbook.settings,
+        // Paid-only choices saved before a downgrade show as they currently apply.
+        settings: effectiveSettings(flipbook.settings, entitlements),
       }}
       previewPages={previewPages}
       pageCount={flipbook.pageCount}
@@ -40,6 +42,7 @@ export default async function FlipbookSettingsPage({ params, searchParams }: Pag
       embedUrl={embedFlipbookUrl(flipbook.id)}
       canRemoveBranding={entitlements.canRemoveBranding}
       canUseCustomSlug={entitlements.canUseCustomSlug}
+      canOfferDownload={entitlements.canOfferDownload}
       initialTab={TABS.find((t) => t === tab) ?? "general"}
     />
   );

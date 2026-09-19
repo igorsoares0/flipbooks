@@ -21,14 +21,14 @@ export default async function EditorPage({ params }: PageProps<"/dashboard/flipb
       <div className="flex min-h-dvh items-center bg-paper px-4">
         <PlaceholderPage
           icon={LayoutTemplate}
-          title="The canvas editor is part of the Lifetime Deal"
+          title="The canvas editor isn't part of your plan"
           body="Design pages from scratch with text, images and shapes, with autosave, undo and templates."
           action={
             <div className="flex justify-center gap-2">
               <ButtonLink href="/dashboard" variant="secondary">
                 Back to dashboard
               </ButtonLink>
-              <ButtonLink href="/dashboard/billing?upgrade=canvas">See the Lifetime Deal</ButtonLink>
+              <ButtonLink href="/dashboard/billing">See plans</ButtonLink>
             </div>
           }
         />
@@ -47,6 +47,8 @@ export default async function EditorPage({ params }: PageProps<"/dashboard/flipb
       published={doc.flipbook.status === "PUBLISHED"}
       updatedAt={doc.flipbook.updatedAt}
       pages={doc.pages}
+      // A book made before a downgrade may already be longer; it keeps its pages.
+      maxPages={Math.max(entitlements.maxPagesPerFlipbook, doc.pages.length)}
       assets={assets.map(({ id, key, url, filename, width, height }) => ({ id, key, url, filename, width, height }))}
     />
   );

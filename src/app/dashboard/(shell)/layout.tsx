@@ -17,7 +17,7 @@ function initials(name: string) {
 export default async function ShellLayout({ children }: LayoutProps<"/dashboard">) {
   const [user, billing, flipbookCount] = await Promise.all([getCurrentUser(), getBilling(), getFlipbookCount()]);
   const { usage, entitlements } = billing;
-  const lifetime = billing.plan === "LIFETIME";
+  const pro = billing.plan === "PRO";
 
   return (
     <AppShell
@@ -26,8 +26,8 @@ export default async function ShellLayout({ children }: LayoutProps<"/dashboard"
         used: formatGb(usage.storageBytes),
         limit: formatGb(entitlements.maxStorageBytes),
         ratio: usage.storageBytes / entitlements.maxStorageBytes,
-        planLabel: lifetime ? "Lifetime plan" : "Free plan",
-        planBadge: lifetime ? "LTD" : "FREE",
+        planLabel: pro ? "Pro plan" : "Free plan",
+        planBadge: pro ? "PRO" : "FREE",
       }}
       flipbookCount={flipbookCount}
     >

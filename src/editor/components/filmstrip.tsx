@@ -36,7 +36,7 @@ function PageMenu({ menu, onClose }: { menu: Menu; onClose: () => void }) {
     onClose();
   };
   const items: { label: string; action: () => void; disabled?: boolean; danger?: boolean }[] = [
-    { label: "Duplicate page", action: () => store.getState().duplicateSelection() },
+    { label: "Duplicate page", action: () => store.getState().duplicateSelection(), disabled: pages.length >= store.getState().maxPages },
     { label: "Move left", action: () => store.getState().reorderPage(index, index - 1), disabled: index === 0 },
     { label: "Move right", action: () => store.getState().reorderPage(index, index + 1), disabled: index === pages.length - 1 },
     { label: "Delete page", action: () => store.getState().deleteSelection(), disabled: pages.length === 1, danger: true },
@@ -81,6 +81,8 @@ export function Filmstrip() {
   const activePageId = useEditor((s) => s.activePageId);
   const setActivePage = useEditor((s) => s.setActivePage);
   const addPage = useEditor((s) => s.addPage);
+  const atLimit = useEditor((s) => s.pages.length >= s.maxPages);
+  const maxPages = useEditor((s) => s.maxPages);
   const listRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLButtonElement>(null);
   // Set while a thumbnail is dragged: which one, and the slot it would drop into.
@@ -177,8 +179,10 @@ export function Filmstrip() {
       })}
       <button
         onClick={addPage}
+        disabled={atLimit}
+        title={atLimit ? `Your plan allows ${maxPages} pages per flipbook` : undefined}
         aria-label="Add page"
-        className="mb-[18px] flex h-[70px] w-[54px] shrink-0 items-center justify-center rounded border-[1.5px] border-dashed border-line-strong bg-surface-sunken text-muted-2 hover:border-accent hover:text-accent"
+        className="mb-[18px] flex h-[70px] w-[54px] shrink-0 items-center justify-center rounded border-[1.5px] border-dashed border-line-strong bg-surface-sunken text-muted-2 enabled:hover:border-accent enabled:hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
       >
         <Plus className="size-5" strokeWidth={1.4} />
       </button>

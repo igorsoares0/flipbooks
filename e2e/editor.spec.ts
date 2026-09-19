@@ -108,10 +108,13 @@ test.describe("editor", () => {
     await expect(page.getByRole("link", { name: "View live" })).toHaveAttribute("href", `/f/${book.slug}`);
   });
 
-  test("the free plan sees an upgrade page instead of the editor", async ({ page }) => {
+  test("the free plan edits a longer book but can't grow it", async ({ page }) => {
     const user = await signInAsNewUser(page, { plan: "FREE" });
-    const book = await cloneFlipbook("fb_2Hc6", user.id);
+    const book = await cloneFlipbook("fb_2Hc6", user.id); // 16 pages, over Free's 15
     await page.goto(`/dashboard/flipbooks/${book.id}/editor`);
-    await expect(page.getByText("The canvas editor is part of the Lifetime Deal")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Page \d+$/ })).toHaveCount(16);
+    await expect(page.getByRole("button", { name: "Add page" })).toBeDisabled();
+    await page.getByRole("button", { name: "Add a heading" }).click();
+    await saved(page);
   });
 });

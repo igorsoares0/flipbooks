@@ -147,9 +147,11 @@ type EditorProps = {
   updatedAt: string;
   pages: Page[];
   assets: AssetItem[];
+  /** The plan's page limit for one flipbook. */
+  maxPages: number;
 };
 
-function EditorLayout({ flipbookId, title, type, slug, published, updatedAt, pages }: Omit<EditorProps, "assets">) {
+function EditorLayout({ flipbookId, title, type, slug, published, updatedAt, pages }: Omit<EditorProps, "assets" | "maxPages">) {
   useShortcuts();
   useUnsavedChangesWarning();
   return (
@@ -169,7 +171,7 @@ function EditorLayout({ flipbookId, title, type, slug, published, updatedAt, pag
   );
 }
 
-export function Editor({ pages, assets, ...props }: EditorProps) {
+export function Editor({ pages, assets, maxPages, ...props }: EditorProps) {
   const [drafts] = useState(() => draftStorage(props.flipbookId));
   const save: SaveDocument = async (next) => {
     try {
@@ -186,7 +188,7 @@ export function Editor({ pages, assets, ...props }: EditorProps) {
   }, [drafts]);
 
   return (
-    <EditorStoreProvider pages={pages} save={save} drafts={drafts} assets={assets}>
+    <EditorStoreProvider pages={pages} save={save} drafts={drafts} assets={assets} maxPages={maxPages}>
       <EditorLayout pages={pages} {...props} />
     </EditorStoreProvider>
   );

@@ -43,7 +43,7 @@ test.describe("PDF upload", () => {
   test("the free plan's limits are shown before uploading", async ({ page }) => {
     await signInAsNewUser(page, { plan: "FREE" });
     await page.goto("/dashboard/flipbooks/new");
-    await expect(page.getByText("Max 20 MB, up to 50 pages on your Free plan.")).toBeVisible();
+    await expect(page.getByText("Max 20 MB, up to 15 pages on your Free plan.")).toBeVisible();
   });
 
   test("an unreadable PDF fails with a reason and can be retried", async ({ page }) => {

@@ -131,7 +131,9 @@ export interface User {
   image: string | null;
 }
 
-export type Plan = "FREE" | "LIFETIME";
+export type Plan = "FREE" | "PRO";
+
+export type BillingInterval = "MONTH" | "YEAR";
 
 export interface Entitlements {
   plan: Plan;
@@ -140,27 +142,38 @@ export interface Entitlements {
   canUseCustomSlug: boolean;
   canUseAnalytics: boolean;
   canEmbed: boolean;
-  maxStorageBytes: number;
-  maxPagesProcessed: number;
-  maxMonthlyViews: number;
-  maxBandwidthBytes: number;
+  /** Let readers download the original PDF. */
+  canOfferDownload: boolean;
+  maxFlipbooks: number;
+  /** Pages per flipbook: PDFs longer than this are refused, canvas documents can't grow past it. */
+  maxPagesPerFlipbook: number;
   maxPdfBytes: number;
-  maxPdfPages: number;
+  maxStorageBytes: number;
+  /** Soft limit: readers are never blocked, the billing page warns. */
+  maxMonthlyViews: number;
 }
 
 export interface Usage {
+  flipbooks: number;
   storageBytes: number;
-  pagesProcessed: number;
   monthlyViews: number;
-  bandwidthBytes: number;
+}
+
+/** The paid subscription behind a plan, as shown on the billing page. */
+export interface SubscriptionSummary {
+  /** Null for manual grants. */
+  interval: BillingInterval | null;
+  status: "ACTIVE" | "TRIALING" | "PAST_DUE" | "PAUSED" | "CANCELED" | "REFUNDED";
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  /** Managed through Paddle (portal, interval switch) rather than granted by hand. */
+  managedByPaddle: boolean;
 }
 
 export interface Billing {
   plan: Plan;
   provider: "paddle";
-  /** Null on the free plan. */
-  purchasedAt: string | null;
-  expiresAt: string | null;
+  subscription: SubscriptionSummary | null;
   entitlements: Entitlements;
   usage: Usage;
 }

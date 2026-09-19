@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth/session";
-import { getEntitlements } from "@/lib/data/flipbooks";
+import { countFlipbooks, getEntitlements } from "@/lib/data/flipbooks";
+import { flipbookLimitViolation } from "@/lib/entitlements/policy";
 import { checkUploadAllowed, confirmPdfUpload, createPdfUpload, retryPdfProcessing } from "@/lib/data/uploads";
 import { PDF_CONTENT_TYPE } from "@/lib/flipbook-rules";
 import { presignPut } from "@/lib/storage";
@@ -23,7 +24,10 @@ export async function startPdfUpload(input: unknown): Promise<StartUploadResult>
   const parsed = startSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid file." };
 
-  const allowed = await checkUploadAllowed(user.id, await getEntitlements(user.id), parsed.data.size);
+  const entitlements = await getEntitlements(user.id);
+  const overLimit = flipbookLimitViolation(entitlements, await countFlipbooks(user.id));
+  if (overLimit) return { ok: false, error: overLimit };
+  const allowed = await checkUploadAllowed(user.id, entitlements, parsed.data.size);
   if (!allowed.ok) return allowed;
 
   const { flipbookId, key } = await createPdfUpload(user.id, parsed.data);

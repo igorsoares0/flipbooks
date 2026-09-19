@@ -65,7 +65,7 @@ describe("reading flipbooks", () => {
 });
 
 describe("plans and usage", () => {
-  it("resolves the Lifetime Deal and defaults everyone else to free", async () => {
+  it("resolves Pro and defaults everyone else to free", async () => {
     expect((await repo.getEntitlements(MARINA)).canUseCanvasEditor).toBe(true);
     expect((await repo.getPlan(THEO)).plan).toBe("FREE");
     expect((await repo.getEntitlements(THEO)).canRemoveBranding).toBe(false);
@@ -75,11 +75,17 @@ describe("plans and usage", () => {
     const usage = await repo.getUsage(MARINA);
     const pdfBytes = await prisma.flipbook.aggregate({ where: { userId: MARINA }, _sum: { fileSize: true } });
     expect(usage.storageBytes).toBe(pdfBytes._sum.fileSize);
-    expect(usage.pagesProcessed).toBe(64 + 42 + 12 + 36 + 56 + 24); // readable PDFs
+    expect(usage.flipbooks).toBe(12);
+    const thisMonth = await prisma.analyticsEvent.count({
+      where: { type: "VIEW", flipbook: { userId: MARINA }, createdAt: { gte: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)) } },
+    });
+    expect(usage.monthlyViews).toBe(thisMonth);
+    expect(thisMonth).toBeGreaterThan(0);
 
-    const stats = await repo.getDashboardStats(MARINA, 204);
+    const stats = await repo.getDashboardStats(MARINA);
     expect(stats.flipbookCount).toBe(12);
-    expect(stats.totalViews).toBe(48_190);
+    expect(stats.totalViews).toBe(4_819); // the seeded VIEW events
+    expect(stats.avgReadSeconds).toBeGreaterThan(0);
     expect(stats.storageLimitBytes).toBe(20e9);
   });
 });
@@ -95,6 +101,14 @@ describe("writing flipbooks", () => {
     const pages = await repo.getPages(first.id);
     expect(pages).toHaveLength(8);
     expect(pages[0].background.color).toBe(template.tint);
+  });
+
+  it("cuts templates to the plan's page limit", async () => {
+    const report = findTemplate("tpl_report")!; // 32 pages
+    const limited = await mutations.createFlipbook(MARINA, { template: report, maxPages: 15 });
+    expect(limited.pageCount).toBe(15);
+    expect(await repo.getPages(limited.id)).toHaveLength(15);
+    await mutations.deleteFlipbook(MARINA, limited.id);
   });
 
   it("only updates the owner's flipbook", async () => {

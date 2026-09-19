@@ -1,11 +1,10 @@
-import { Check } from "lucide-react";
-import Link from "next/link";
+import { PlanPicker } from "@/components/billing/plan-picker";
+import { gutter, SiteFooter, SiteHeader } from "@/components/marketing/site-chrome";
 import { ButtonLink } from "@/components/ui/button";
-import { Logo } from "@/components/ui/logo";
+import { PRO_PRICES } from "@/lib/billing/catalog";
 import { resolveEntitlements } from "@/lib/entitlements";
-import { formatCount, formatGb } from "@/lib/format";
 
-const lifetime = resolveEntitlements("LIFETIME");
+const free = resolveEntitlements("FREE");
 
 const FEATURES = [
   { n: "01", title: "PDF in, flipbook out", body: "Pages, thumbnails and a public URL rendered automatically — usually under a minute." },
@@ -14,50 +13,15 @@ const FEATURES = [
   { n: "04", title: "Know what they read", body: "Views, reading time, per-page drop-off, devices and countries." },
 ];
 
-const LTD_INCLUDES = [
-  "Unlimited flipbooks",
-  `${formatGb(lifetime.maxStorageBytes)} GB storage`,
-  `${formatCount(lifetime.maxPagesProcessed)} pages processed`,
-  "Canvas editor + templates",
-  "Remove Flipbook branding",
-  "Analytics and embeds",
-  "All future MVP updates",
-];
-
-const gutter = "px-[clamp(18px,4vw,56px)]";
-
 export default function HomePage() {
   return (
     <div className="min-h-dvh bg-paper">
-      <header
-        className={`sticky top-0 z-10 flex h-[66px] items-center gap-4 border-b border-line bg-[rgba(243,241,236,.9)] backdrop-blur-[8px] ${gutter}`}
-      >
-        <Link href="/" className="text-ink hover:text-ink">
-          <Logo />
-        </Link>
-        <nav className="ml-[26px] flex gap-5 text-[13px] text-ink-70 max-md:hidden">
-          <a href="#features" className="hover:text-ink">
-            Features
-          </a>
-          <a href="#pricing" className="hover:text-ink">
-            Pricing
-          </a>
-          <Link href="/dashboard/templates" className="hover:text-ink">
-            Templates
-          </Link>
-        </nav>
-        <div className="ml-auto flex items-center gap-2.5">
-          <Link href="/login" className="text-[13px] font-semibold whitespace-nowrap text-ink max-sm:hidden">
-            Log in
-          </Link>
-          <ButtonLink href="/register">Get the Lifetime Deal</ButtonLink>
-        </div>
-      </header>
+      <SiteHeader />
 
       <section className={`mx-auto flex max-w-[1180px] flex-wrap items-center gap-11 pt-[clamp(48px,8vw,96px)] ${gutter}`}>
         <div className="min-w-0 flex-[1_1_380px]">
           <span className="inline-flex max-w-full items-center gap-[7px] overflow-hidden rounded-[20px] border border-line bg-surface px-3 py-1.5 font-mono text-[10.5px] leading-[1.4] font-medium whitespace-nowrap text-muted">
-            ● LIFETIME DEAL · FIRST 500 SEATS
+            ● FREE PLAN · NO CARD NEEDED
           </span>
           <h1 className="mt-5 font-serif text-[clamp(42px,6.4vw,72px)] leading-[1.02] tracking-[-2px]">
             Create stunning
@@ -76,7 +40,7 @@ export default function HomePage() {
             </ButtonLink>
           </div>
           <div className="mt-4 text-xs text-muted-2">
-            One payment · no subscription · {formatGb(lifetime.maxStorageBytes)} GB storage
+            Free for {free.maxFlipbooks} flipbooks · Pro from ${PRO_PRICES.YEAR.perMonth}/month
           </div>
         </div>
         <div className="min-w-0 flex-[1_1_380px]" aria-hidden>
@@ -108,49 +72,14 @@ export default function HomePage() {
       </section>
 
       <section id="pricing" className={`mx-auto max-w-[1180px] scroll-mt-20 pb-[clamp(56px,8vw,100px)] ${gutter}`}>
-        <div className="flex flex-wrap items-center gap-9 rounded-[20px] bg-ink p-[clamp(28px,4vw,48px)] text-on-dark">
-          <div className="min-w-0 flex-[1_1_300px]">
-            <div className="label-mono tracking-[.1em] text-on-dark-dim-2">LAUNCH PRICING</div>
-            <div className="mt-3.5 flex items-baseline gap-3">
-              <span className="font-serif text-[clamp(48px,7vw,76px)] leading-none tracking-[-2px]">$79</span>
-              <span className="text-base text-on-dark-dim-2 line-through">$348/yr</span>
-            </div>
-            <div className="mt-2.5 text-sm text-on-dark-dim">Pay once. Keep it forever.</div>
-            <ButtonLink href="/register" variant="light" size="lg" className="mt-[22px]">
-              Buy the Lifetime Deal
-            </ButtonLink>
-            <div className="mt-2.5 text-[11.5px] text-on-dark-dim-2">Secure checkout via Paddle · 30-day refund</div>
-          </div>
-          <ul className="flex min-w-0 flex-[1_1_260px] flex-col gap-[11px]">
-            {LTD_INCLUDES.map((item) => (
-              <li key={item} className="flex items-start gap-2.5 text-[13px] leading-normal text-line">
-                <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-[#243B8E] text-white">
-                  <Check className="size-2.5" strokeWidth={3} />
-                </span>
-                {item}
-              </li>
-            ))}
-          </ul>
+        <div className="mb-8 text-center">
+          <h2 className="font-serif text-[clamp(32px,4.4vw,46px)] leading-[1.08] tracking-[-1px]">Simple pricing</h2>
+          <p className="mt-2.5 text-[14px] text-muted">Start free. Upgrade when you need more flipbooks, analytics or your own brand.</p>
         </div>
+        <PlanPicker mode="marketing" />
       </section>
 
-      <footer className={`mx-auto flex max-w-[1180px] flex-wrap items-center gap-3.5 border-t border-line py-[26px] ${gutter}`}>
-        <span className="text-xs text-muted-2">© 2026 Flipbook</span>
-        <div className="ml-auto flex flex-wrap gap-[18px] text-xs text-muted">
-          <a href="#features" className="hover:text-ink">
-            Features
-          </a>
-          <a href="#pricing" className="hover:text-ink">
-            Pricing
-          </a>
-          <Link href="/dashboard/templates" className="hover:text-ink">
-            Templates
-          </Link>
-          {/* Legal pages are not written yet. */}
-          <span>Privacy</span>
-          <span>Terms</span>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

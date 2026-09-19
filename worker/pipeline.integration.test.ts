@@ -20,7 +20,7 @@ const FREE_USER = "usr_pipeline_free"; // free plan
 beforeAll(async () => {
   await prisma.user.deleteMany({ where: { id: { in: [PRO, FREE_USER] } } });
   await prisma.user.create({
-    data: { id: PRO, name: "Pipeline Pro", email: "pipeline-ltd@test.local", subscriptions: { create: { plan: "LIFETIME" } } },
+    data: { id: PRO, name: "Pipeline Pro", email: "pipeline-ltd@test.local", subscriptions: { create: { plan: "PRO" } } },
   });
   await prisma.user.create({ data: { id: FREE_USER, name: "Pipeline Free", email: "pipeline-free@test.local" } });
 });
@@ -133,12 +133,12 @@ describe("rendering", () => {
 
   it("stops at the plan's page limit", async () => {
     const free = resolveEntitlements("FREE");
-    const tooMany = Array.from({ length: free.maxPdfPages + 1 }, () => [200, 200] as [number, number]);
+    const tooMany = Array.from({ length: free.maxPagesPerFlipbook + 1 }, () => [200, 200] as [number, number]);
     const { flipbookId, confirm } = await upload(FREE_USER, await makePdf(tooMany), "long.pdf");
     await confirm();
     await processJobFor(flipbookId);
     expect((await prisma.flipbook.findUniqueOrThrow({ where: { id: flipbookId } })).error).toBe(
-      `it has ${free.maxPdfPages + 1} pages and your plan allows ${free.maxPdfPages}`,
+      `it has ${free.maxPagesPerFlipbook + 1} pages and your plan allows ${free.maxPagesPerFlipbook}`,
     );
   });
 });

@@ -9,7 +9,7 @@ const recentTable = (page: import("@playwright/test").Page) =>
 test.describe("dashboard", () => {
   test("shows stats and the six most recent flipbooks", async ({ page }) => {
     await page.goto("/dashboard");
-    await expect(page.getByText("48.2k")).toBeVisible();
+    await expect(page.getByText("4.8k")).toBeVisible(); // the seeded reader visits
     await expect(recentTable(page).getByRole("button", { name: /^More actions for / })).toHaveCount(6);
     await expect(page.getByRole("link", { name: "Flipbooks" })).toContainText("12");
   });
@@ -68,12 +68,19 @@ test.describe("dashboard", () => {
 
 test.describe("analytics", () => {
   test("switches ranges and highlights the drop-off page", async ({ page }) => {
-    await page.goto("/dashboard/flipbooks/fb_8Kd2/analytics");
-    await expect(page.getByText("12,480")).toBeVisible();
-    await expect(page.getByText("Drop-off after page 9")).toBeVisible();
-    await page.getByRole("link", { name: "90d" }).click();
-    await expect(page).toHaveURL(/range=90d/);
-    await expect(page.getByText("12,480")).toBeHidden();
+    const views = page.getByRole("group", { name: "VIEWS", exact: true });
+    const count = async () => Number((await views.textContent())!.match(/VIEWS([\d,]+)/)![1].replaceAll(",", ""));
+    await page.goto("/dashboard/flipbooks/fb_8Kd2/analytics?range=all");
+    // The 1,248 seeded visits, plus any signed-out reader other specs sent to this book.
+    await expect.poll(count).toBeGreaterThanOrEqual(1_248);
+    const allTime = await count();
+    await expect(page.getByText(/Drop-off after page \d+/)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Devices" })).toBeVisible();
+    await expect(page.getByText("Mobile")).toBeVisible();
+
+    await page.getByRole("link", { name: "30d" }).click();
+    await expect(page).toHaveURL(/range=30d/);
+    await expect.poll(count).toBeLessThan(allTime);
   });
 
   test("unpublished books have no analytics yet", async ({ page }) => {
@@ -107,12 +114,19 @@ test.describe("creating flipbooks", () => {
     await expect(page.getByRole("button", { name: /^Page \d+$/ })).toHaveCount(1);
   });
 
-  test("the free plan is sent to the upgrade page instead", async ({ page }) => {
-    await signInAsNewUser(page, { plan: "FREE" });
+  test("the free plan can use the editor, up to three flipbooks", async ({ page }) => {
+    const user = await signInAsNewUser(page, { plan: "FREE" });
     await page.goto("/dashboard/flipbooks/new");
     await page.getByRole("button", { name: "Open editor" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/billing\?upgrade=canvas$/);
-    await expect(page.getByText("The canvas editor is part of the Lifetime Deal.")).toBeVisible();
+    await expect(page).toHaveURL(/\/editor$/);
+
+    await cloneFlipbook("fb_2Hc6", user.id);
+    await cloneFlipbook("fb_2Hc6", user.id);
+    await page.goto("/dashboard/flipbooks/new");
+    await expect(page.getByText("You've used all 3 flipbooks on the Free plan.")).toBeVisible();
+    await page.getByRole("button", { name: "Open editor" }).click();
+    await expect(page).toHaveURL(/\/dashboard\/billing\?upgrade=flipbooks$/);
+    await expect(page.getByText("You've reached your plan's flipbook limit.")).toBeVisible();
   });
 });
 

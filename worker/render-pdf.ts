@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import sharp from "sharp";
 import type { PrismaClient } from "../src/generated/prisma/client";
-import { resolveEntitlements } from "../src/lib/entitlements";
+import { grantingSubscriptionWhere, resolveEntitlements } from "../src/lib/entitlements";
 import { PAGE_WIDTH } from "../src/lib/flipbook-rules";
 import { downloadToFile, keys, putObject } from "../src/lib/storage/s3";
 import { ProcessingError } from "./errors";
@@ -60,7 +60,7 @@ async function renderPage(pdf: PdfDocument, pageNumber: number) {
 
 async function planFor(prisma: PrismaClient, userId: string) {
   const subscription = await prisma.subscription.findFirst({
-    where: { userId, status: "ACTIVE", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+    where: { userId, ...grantingSubscriptionWhere() },
     orderBy: { createdAt: "desc" },
   });
   return resolveEntitlements(subscription?.plan ?? "FREE");
@@ -84,15 +84,8 @@ export async function renderPdfJob(
     pdf = await openPdf(file);
 
     const total = pdf.numPages;
-    if (total > entitlements.maxPdfPages) {
-      throw new ProcessingError(`it has ${total} pages and your plan allows ${entitlements.maxPdfPages}`);
-    }
-    const used = await prisma.flipbook.aggregate({
-      where: { userId: flipbook.userId, type: "PDF", status: { in: ["DRAFT", "READY", "PUBLISHED"] }, id: { not: flipbookId } },
-      _sum: { pageCount: true },
-    });
-    if ((used._sum.pageCount ?? 0) + total > entitlements.maxPagesProcessed) {
-      throw new ProcessingError(`it would go over your ${entitlements.maxPagesProcessed.toLocaleString("en-US")} processed pages`);
+    if (total > entitlements.maxPagesPerFlipbook) {
+      throw new ProcessingError(`it has ${total} pages and your plan allows ${entitlements.maxPagesPerFlipbook}`);
     }
 
     const pages: { pageNumber: number; height: number }[] = [];

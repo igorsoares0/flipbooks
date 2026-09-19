@@ -16,7 +16,7 @@ const FREE_USER = "usr_assets_free"; // free plan
 beforeAll(async () => {
   await prisma.user.deleteMany({ where: { id: { in: [PRO, FREE_USER] } } });
   await prisma.user.create({
-    data: { id: PRO, name: "Assets Pro", email: "assets-ltd@test.local", subscriptions: { create: { plan: "LIFETIME" } } },
+    data: { id: PRO, name: "Assets Pro", email: "assets-ltd@test.local", subscriptions: { create: { plan: "PRO" } } },
   });
   await prisma.user.create({ data: { id: FREE_USER, name: "Assets Free", email: "assets-free@test.local" } });
 });
@@ -69,9 +69,11 @@ describe("starting an image upload", () => {
     expect(result.ok && result.key).toMatch(new RegExp(`^assets/${PRO}/[0-9a-f]{32}\\.webp$`));
   });
 
-  it("refuses the free plan and files over 15 MB", async () => {
+  it("lets the free plan upload within its storage, but not files over 15 MB", async () => {
     const free = await assets.createAssetUpload(FREE_USER, await repo.getEntitlements(FREE_USER), { size: 1000, contentType: "image/png" });
-    expect(free).toEqual({ ok: false, error: "Image uploads are part of the Lifetime Deal." });
+    expect(free.ok).toBe(true);
+    const overStorage = await assets.createAssetUpload(FREE_USER, await repo.getEntitlements(FREE_USER), { size: 0.6e9, contentType: "image/png" });
+    expect(overStorage.ok).toBe(false);
     const huge = await assets.createAssetUpload(PRO, await repo.getEntitlements(PRO), { size: 16 * 1024 * 1024, contentType: "image/png" });
     expect(huge.ok).toBe(false);
   });

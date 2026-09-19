@@ -20,7 +20,7 @@ const COPY: Record<AuthMode, { title: string; sub: string; cta: string; switchTe
   },
   register: {
     title: "Start your first flipbook",
-    sub: "Free to try. The Lifetime Deal unlocks the canvas editor and analytics.",
+    sub: "Free forever for up to 3 flipbooks. Upgrade to Pro when you need more.",
     cta: "Create account",
     switchText: "Already have an account?",
     switchCta: "Log in",
@@ -261,7 +261,15 @@ export function AuthForm({
         </Link>
       </div>
       <p className="mt-[26px] text-[11px] leading-normal text-muted-3">
-        By continuing you agree to the Terms and Privacy Policy. We send a verification email before your first publish.
+        By continuing you agree to the{" "}
+        <Link href="/terms" className="underline underline-offset-2 hover:text-muted">
+          Terms
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="underline underline-offset-2 hover:text-muted">
+          Privacy Policy
+        </Link>
+        . We send a verification email before your first publish.
       </p>
     </div>
   );

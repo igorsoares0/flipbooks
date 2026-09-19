@@ -21,15 +21,17 @@ export function EditorStoreProvider({
   save,
   drafts,
   assets,
+  maxPages,
   children,
 }: {
   pages: Page[];
   save: SaveDocument;
   drafts?: DraftStorage;
   assets?: AssetItem[];
+  maxPages?: number;
   children: ReactNode;
 }) {
-  const [store] = useState(() => createEditorStore(pages, { save, drafts, assets }));
+  const [store] = useState(() => createEditorStore(pages, { save, drafts, assets, maxPages }));
   return <EditorStoreContext.Provider value={store}>{children}</EditorStoreContext.Provider>;
 }
 

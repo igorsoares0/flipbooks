@@ -60,7 +60,7 @@ export async function createAssetUpload(
   entitlements: Entitlements,
   { size, contentType }: { size: number; contentType: ImageType },
 ): Promise<Result<{ key: string }>> {
-  if (!entitlements.canUseCanvasEditor) return { ok: false, error: "Image uploads are part of the Lifetime Deal." };
+  if (!entitlements.canUseCanvasEditor) return { ok: false, error: "Image uploads aren't part of your plan." };
   if (size <= 0) return { ok: false, error: "That file is empty." };
   if (size > MAX_ASSET_BYTES) return { ok: false, error: "Images can be up to 15 MB." };
   const usage = await getUsage(userId);

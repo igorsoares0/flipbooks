@@ -27,6 +27,8 @@ export default async function EmbedPage({ params, searchParams }: PageProps<"/em
       initialPage={Number(page) || 1}
       publicUrl={publicFlipbookUrl(flipbook.slug)}
       downloadHref={flipbook.type === "PDF" && flipbook.settings.showDownload ? `/api/flipbooks/${flipbook.id}/download` : null}
+      // Only published, non-private books collect analytics; the server checks again.
+      trackingId={flipbook.status === "PUBLISHED" && flipbook.visibility !== "PRIVATE" ? flipbook.id : null}
     />
   );
 }

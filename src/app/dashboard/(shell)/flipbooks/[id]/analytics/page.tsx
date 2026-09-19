@@ -25,8 +25,10 @@ export async function generateMetadata({ params }: PageProps<"/dashboard/flipboo
 
 function MetricCard({ label, value, delta, positive }: { label: string; value: string; delta: string | null; positive: boolean }) {
   return (
-    <div className="rounded-[13px] border border-line bg-surface px-4 py-[15px]">
-      <div className="font-mono text-[10px] font-medium tracking-[.06em] text-muted-2">{label}</div>
+    <div role="group" aria-label={label} className="rounded-[13px] border border-line bg-surface px-4 py-[15px]">
+      <div className="font-mono text-[10px] font-medium tracking-[.06em] text-muted-2" aria-hidden>
+        {label}
+      </div>
       <div className="mt-2 text-2xl font-semibold tracking-[-0.6px]">{value}</div>
       <div className={cn("mt-1 text-[11px]", delta === null ? "text-muted-3" : positive ? "text-success" : "text-danger")}>
         {delta ?? "All time"}
@@ -47,9 +49,9 @@ export default async function AnalyticsPage({ params, searchParams }: PageProps<
     return (
       <PlaceholderPage
         icon={ChartNoAxesColumn}
-        title="Analytics are part of the Lifetime Deal"
-        body="See views, reading time, per-page drop-off, devices and countries for every flipbook."
-        action={<ButtonLink href="/dashboard/billing?upgrade=analytics">See the Lifetime Deal</ButtonLink>}
+        title="Analytics are part of Pro"
+        body="See views, reading time, per-page drop-off, devices and countries for every flipbook. Readers are already being counted, so upgrading shows your history."
+        action={<ButtonLink href="/dashboard/billing?upgrade=analytics">Upgrade to Pro</ButtonLink>}
       />
     );
   }
@@ -85,7 +87,8 @@ export default async function AnalyticsPage({ params, searchParams }: PageProps<
 
   // The bar after the steepest drop is where readers leave.
   const bars = analytics.viewsPerPage.slice(0, 16);
-  const maxViews = Math.max(...bars);
+  const maxViews = Math.max(...bars, 0);
+  const hasPageViews = maxViews > 0;
   let dropIndex = 1;
   for (let i = 1; i < bars.length; i++) {
     if (bars[i - 1] - bars[i] > bars[dropIndex - 1] - bars[dropIndex]) dropIndex = i;
@@ -138,20 +141,25 @@ export default async function AnalyticsPage({ params, searchParams }: PageProps<
                     "w-full max-w-[26px] rounded-t-[3px] hover:bg-accent hover:opacity-100",
                     i === dropIndex ? "bg-warning" : "bg-ink opacity-[.82]",
                   )}
-                  style={{ height: Math.round((views / maxViews) * 150) }}
+                  style={{ height: hasPageViews ? Math.round((views / maxViews) * 150) : 0 }}
                 />
                 <span className="font-mono text-[9px] font-medium text-muted-3">{i + 1}</span>
               </div>
             ))}
           </div>
           <p className="mt-3 text-[11.5px] text-muted-2">
-            Drop-off after page {dropIndex} — consider moving the CTA earlier.
+            {!hasPageViews
+              ? "No readers in this period yet."
+              : bars.length > 1
+                ? `Drop-off after page ${dropIndex} — consider moving the CTA earlier.`
+                : "Views of the first page."}
           </p>
         </section>
 
         <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-4">
           <section className="rounded-2xl border border-line bg-surface p-[18px]">
             <h2 className="mb-3.5 text-[13px] font-semibold">Devices</h2>
+            {analytics.devices.length === 0 && <p className="text-[12px] text-muted-2">No readers yet.</p>}
             {analytics.devices.map((d, i) => (
               <div key={d.name} className="mb-3 last:mb-0">
                 <div className="mb-1.5 flex justify-between text-xs">
@@ -166,6 +174,9 @@ export default async function AnalyticsPage({ params, searchParams }: PageProps<
           </section>
           <section className="rounded-2xl border border-line bg-surface p-[18px]">
             <h2 className="mb-3 text-[13px] font-semibold">Top countries</h2>
+            {analytics.countries.length === 0 && (
+              <p className="text-[12px] text-muted-2">Countries show when the site runs behind a CDN that reports them.</p>
+            )}
             {analytics.countries.map((c) => (
               <div key={c.name} className="flex justify-between border-b border-line-soft py-[7px] text-[12.5px] last:border-b-0">
                 <span>{c.name}</span>

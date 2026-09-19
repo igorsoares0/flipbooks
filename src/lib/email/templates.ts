@@ -84,3 +84,14 @@ export function processingFailedEmail({
     text: `${body}\n\nDetails: ${url}\n\n${footnote}`,
   };
 }
+
+export function welcomeToProEmail({ to, name, url }: { to: string; name: string; url: string }): Email {
+  const body = `Hi ${name}, thanks for subscribing. Pro is active on your account: no Flipbook badge, custom addresses, reader analytics and room for 100 flipbooks.`;
+  const footnote = "Paddle, our payment provider, emails your receipt separately. Manage your plan from the billing page.";
+  return {
+    to,
+    subject: "Welcome to Flipbook Pro",
+    html: layout({ heading: "You're on Pro", body, cta: "Go to your dashboard", url, footnote }),
+    text: `${body}\n\nDashboard: ${url}\n\n${footnote}`,
+  };
+}

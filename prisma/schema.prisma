@@ -183,7 +183,7 @@ model Element {
   @@map("elements")
 }
 
-// ─── Later phases (schema only for now) ────────────────────────────────────
+// ─── Assets, analytics and billing ─────────────────────────────────────────
 
 model Asset {
   id         String    @id @default(cuid())
@@ -219,41 +219,76 @@ model AnalyticsEvent {
   pageId     String?
   page       Page?              @relation(fields: [pageId], references: [id], onDelete: SetNull)
   type       AnalyticsEventType
+  /// Random per browser tab (sessionStorage); groups one reading session.
   sessionId  String
+  /// Daily hash of IP + user agent + flipbook; approximates unique readers without storing IPs.
+  visitorId  String             @default("")
   country    String?
   device     String?
+  /// Time spent on the page, for PAGE_VIEW events.
+  durationMs Int?
   createdAt  DateTime           @default(now())
 
   @@index([flipbookId, createdAt])
+  @@index([flipbookId, type, createdAt])
   @@map("analytics_events")
 }
 
 enum Plan {
   FREE
-  LIFETIME
+  PRO
 }
 
+/// Mirrors Paddle's subscription statuses, plus REFUNDED for manual grants.
 enum SubscriptionStatus {
   ACTIVE
-  REFUNDED
+  TRIALING
+  PAST_DUE
+  PAUSED
   CANCELED
+  REFUNDED
+}
+
+enum BillingInterval {
+  MONTH
+  YEAR
 }
 
 model Subscription {
   id                  String             @id @default(cuid())
   userId              String
   user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  paddleCustomerId    String?
-  paddleTransactionId String?            @unique
-  status              SubscriptionStatus @default(ACTIVE)
-  plan                Plan
-  /// Null for the Lifetime Deal.
-  expiresAt           DateTime?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  paddleCustomerId     String?
+  paddleTransactionId  String?            @unique
+  /// Null for manual grants (npm run grant-pro).
+  paddleSubscriptionId String?            @unique
+  paddlePriceId        String?
+  interval             BillingInterval?
+  status               SubscriptionStatus @default(ACTIVE)
+  plan                 Plan
+  /// When the paid period ends; access continues until then.
+  currentPeriodEnd     DateTime?
+  /// The customer cancelled; the subscription ends at currentPeriodEnd.
+  cancelAtPeriodEnd    Boolean            @default(false)
+  /// occurred_at of the last Paddle event applied, so late deliveries never win.
+  lastEventAt          DateTime?
+  /// Null for grants that never expire.
+  expiresAt            DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
   @@index([userId])
+  @@index([paddleCustomerId])
   @@map("subscriptions")
+}
+
+/// Paddle webhook deliveries already handled (Paddle retries and may resend).
+model PaddleEvent {
+  id         String   @id
+  type       String
+  receivedAt DateTime @default(now())
+
+  @@map("paddle_events")
 }
 
 enum JobStatus {

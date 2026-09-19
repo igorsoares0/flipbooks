@@ -20,7 +20,7 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub: st
 export default async function DashboardPage() {
   const [stats, recent, billing] = await Promise.all([getDashboardStats(), getRecentFlipbooks(), getBilling()]);
   const hasReaders = stats.totalViews > 0;
-  const planName = billing.plan === "LIFETIME" ? "Lifetime" : "the Free plan";
+  const planName = billing.plan === "PRO" ? "Pro" : "the Free plan";
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-6">
@@ -42,11 +42,11 @@ export default async function DashboardPage() {
                 : "Publish a flipbook to start counting"
           }
         />
-        {/* Read time comes from analytics events (analytics phase); nothing to show without readers. */}
+        {/* Average reading time per visit over the last 30 days; nothing to show without readers. */}
         <StatCard
           label="AVG. READ TIME"
           value={hasReaders ? formatDuration(stats.avgReadSeconds) : "—"}
-          sub={hasReaders ? "Across published books" : "No readers yet"}
+          sub={hasReaders ? "Per visit, last 30 days" : "No readers yet"}
         />
         <StatCard
           label="STORAGE"

@@ -69,7 +69,7 @@ test.describe("logging in", () => {
     await page.getByLabel("Password").fill(DEMO_PASSWORD);
     await page.getByRole("button", { name: "Log in" }).click();
     await expect(page).toHaveURL(/\/dashboard\/billing$/);
-    await expect(page.getByRole("heading", { name: "Lifetime Deal" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pro", exact: true })).toBeVisible();
   });
 
   test("signing out ends the session", async ({ page }) => {
@@ -170,11 +170,28 @@ test.describe("marketing", () => {
     await expect(page).toHaveURL(/\/f\/summer-catalog\?page=4/);
   });
 
-  test("pricing reflects the Lifetime entitlements", async ({ page }) => {
+  test("pricing shows Free and Pro, yearly first", async ({ page }) => {
     await page.goto("/#pricing");
-    await expect(page.getByText("$79")).toBeVisible();
+    await expect(page.getByTestId("pro-price")).toHaveText("$15");
+    await expect(page.getByTestId("pro-billing")).toHaveText("$180 billed yearly");
+    await page.getByRole("radio", { name: "Monthly" }).click();
+    await expect(page.getByTestId("pro-price")).toHaveText("$22");
+
     const includes = page.getByRole("listitem");
     await expect(includes.filter({ hasText: "20 GB storage" })).toBeVisible();
-    await expect(includes.filter({ hasText: "3,000 pages processed" })).toBeVisible();
+    await expect(includes.filter({ hasText: "3 flipbooks" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Get Pro" })).toHaveAttribute("href", "/register?next=/dashboard/billing");
+  });
+
+  test("legal pages are linked from the footer", async ({ page }) => {
+    await page.goto("/");
+    for (const [link, heading] of [
+      ["Terms", "Terms of Service"],
+      ["Privacy", "Privacy Policy"],
+      ["Refunds", "Refund Policy"],
+    ]) {
+      await page.getByRole("navigation", { name: "Footer" }).getByRole("link", { name: link }).click();
+      await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+    }
   });
 });

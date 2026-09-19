@@ -17,9 +17,9 @@ export type TestUser = { id: string; email: string; password: string; name: stri
 
 /** A brand-new account, isolated from every other test. */
 export async function createTestUser({
-  plan = "LIFETIME",
+  plan = "PRO",
   verified = true,
-}: { plan?: "FREE" | "LIFETIME"; verified?: boolean } = {}): Promise<TestUser> {
+}: { plan?: "FREE" | "PRO"; verified?: boolean } = {}): Promise<TestUser> {
   const id = `usr_e2e_${randomUUID().slice(0, 8)}`;
   const user = { id, name: "Test Author", email: `${id}@e2e.test`, password: TEST_PASSWORD };
   await prisma.user.create({
@@ -29,7 +29,7 @@ export async function createTestUser({
       email: user.email,
       emailVerified: verified,
       accounts: { create: { id: `acc_${id}`, accountId: id, providerId: "credential", password: await hashPassword(TEST_PASSWORD) } },
-      ...(plan === "LIFETIME" ? { subscriptions: { create: { plan: "LIFETIME", status: "ACTIVE" } } } : {}),
+      ...(plan === "PRO" ? { subscriptions: { create: { plan: "PRO", status: "ACTIVE" } } } : {}),
     },
   });
   return user;
@@ -115,4 +115,22 @@ export async function latestEmail(to: string, subject: RegExp): Promise<{ subjec
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error(`No email to ${to} matching ${subject}`);
+}
+
+/** Makes a cloned book public and published, with optional settings overrides. */
+export async function publishForReaders(id: string, settings: Record<string, unknown> = {}) {
+  const book = await prisma.flipbook.findUniqueOrThrow({ where: { id } });
+  await prisma.flipbook.update({
+    where: { id },
+    data: {
+      status: "PUBLISHED",
+      visibility: "PUBLIC",
+      publishedAt: new Date(),
+      settings: { ...(book.settings as Record<string, unknown>), ...settings } as Prisma.InputJsonValue,
+    },
+  });
+}
+
+export async function readerEventCount(flipbookId: string, type?: "VIEW" | "PAGE_VIEW") {
+  return prisma.analyticsEvent.count({ where: { flipbookId, ...(type ? { type } : {}) } });
 }

@@ -35,10 +35,10 @@ test.describe("asset library", () => {
     await expect(page.getByRole("list", { name: "Images" })).toHaveCount(0);
   });
 
-  test("the free plan is offered the Lifetime Deal", async ({ page }) => {
+  test("the free plan has an image library too", async ({ page }) => {
     await signInAsNewUser(page, { plan: "FREE" });
     await page.goto("/dashboard/assets");
-    await expect(page.getByText("Your image library")).toBeVisible();
-    await expect(page.getByLabel("Upload images")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Assets" })).toBeVisible();
+    await expect(page.getByLabel("Upload images")).toHaveCount(1);
   });
 });

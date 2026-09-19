@@ -1,5 +1,6 @@
 import { SquarePlus } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { OpenEditorButton } from "@/components/flipbook/open-editor-button";
 import { PdfDropzone } from "@/components/flipbook/pdf-dropzone";
 import { TemplateGallery } from "@/components/flipbook/template-gallery";
@@ -11,8 +12,9 @@ export const metadata: Metadata = { title: "Create flipbook" };
 
 export default async function CreateFlipbookPage() {
   const billing = await getBilling();
-  const { maxPdfBytes, maxPdfPages } = billing.entitlements;
-  const planName = billing.plan === "LIFETIME" ? "Lifetime" : "Free";
+  const { maxPdfBytes, maxPagesPerFlipbook, maxFlipbooks } = billing.entitlements;
+  const planName = billing.plan === "PRO" ? "Pro" : "Free";
+  const atLimit = billing.usage.flipbooks >= maxFlipbooks;
 
   return (
     <div className="mx-auto flex max-w-[980px] flex-col gap-[22px]">
@@ -21,8 +23,21 @@ export default async function CreateFlipbookPage() {
         <p className="text-[13.5px] text-muted">Two ways in. Both end up in the same viewer, publishing and analytics.</p>
       </div>
 
+      {atLimit && (
+        <p role="status" className="rounded-xl border border-accent/25 bg-accent-soft px-4 py-3 text-[13px] text-accent">
+          <span className="font-semibold">
+            You&apos;ve used all {maxFlipbooks} flipbooks on the {planName} plan.
+          </span>{" "}
+          Delete one, or{" "}
+          <Link href="/dashboard/billing?upgrade=flipbooks" className="font-semibold underline underline-offset-2">
+            upgrade to Pro
+          </Link>{" "}
+          for up to 100.
+        </p>
+      )}
+
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))] gap-4">
-        <PdfDropzone maxBytes={maxPdfBytes} maxPages={maxPdfPages} planName={planName} />
+        <PdfDropzone maxBytes={maxPdfBytes} maxPages={maxPagesPerFlipbook} planName={planName} />
 
         <div className="flex flex-col items-center rounded-2xl border border-line bg-surface p-[26px] text-center">
           <div className="mb-3.5 flex size-[46px] items-center justify-center rounded-xl bg-surface-alt">

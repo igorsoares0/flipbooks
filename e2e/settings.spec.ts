@@ -100,6 +100,7 @@ test.describe("flipbook settings (saving)", () => {
     await expect(page.getByLabel("Public URL")).toBeDisabled();
     await page.getByRole("tab", { name: "Branding" }).click();
     await expect(page.getByRole("switch", { name: "Powered by Flipbook" })).toBeDisabled();
+    await expect(page.getByRole("switch", { name: "Allow PDF download" })).toBeDisabled();
   });
 
   test("publishing makes the book public", async ({ page, browser }) => {

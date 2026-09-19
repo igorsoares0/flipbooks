@@ -38,15 +38,32 @@ export async function uniqueSlug(title: string) {
   throw new Error("Could not find a free slug");
 }
 
-export async function createFlipbook(userId: string, { template }: { template?: Template } = {}) {
+/**
+ * Two creations with the same title can pick the same free slug at once; the unique index
+ * catches it, and a retry picks another.
+ */
+async function withSlugRetry<T>(create: () => Promise<T>, attempts = 3): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await create();
+    } catch (error) {
+      const slugTaken =
+        error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002" && String(error.meta?.target ?? error.message).includes("slug");
+      if (!slugTaken || attempt >= attempts) throw error;
+    }
+  }
+}
+
+export async function createFlipbook(userId: string, { template, maxPages }: { template?: Template; maxPages?: number } = {}) {
   const title = template ? `${template.name} (from template)` : "Untitled flipbook";
   const tint = COVER_TINTS[Math.floor(Math.random() * COVER_TINTS.length)];
-  // A template's designed pages, or one blank page. The database assigns fresh ids.
+  // A template's designed pages (up to the plan's page limit), or one blank page.
+  // The database assigns fresh ids.
   const pages = template
-    ? buildTemplatePages(template.id, "new")
+    ? buildTemplatePages(template.id, "new", maxPages)
     : [{ pageNumber: 1, width: PAGE_WIDTH, height: PAGE_HEIGHT, background: { color: "#FFFFFF" }, elements: [] }];
 
-  const flipbook = await prisma.flipbook.create({
+  const create = async () => prisma.flipbook.create({
     data: {
       userId,
       title,
@@ -73,6 +90,7 @@ export async function createFlipbook(userId: string, { template }: { template?: 
       },
     },
   });
+  const flipbook = await withSlugRetry(create);
   return toFlipbook(flipbook);
 }
 

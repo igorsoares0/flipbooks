@@ -15,8 +15,8 @@ export default async function AssetsPage() {
       <PlaceholderPage
         icon={ImageIcon}
         title="Your image library"
-        body="Upload photos once and place them on any page in the canvas editor. Part of the Lifetime Deal."
-        action={<ButtonLink href="/dashboard/billing?upgrade=canvas">See the Lifetime Deal</ButtonLink>}
+        body="Upload photos once and place them on any page in the canvas editor."
+        action={<ButtonLink href="/dashboard/billing">See plans</ButtonLink>}
       />
     );
   }

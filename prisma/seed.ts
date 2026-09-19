@@ -2,6 +2,7 @@ import { hashPassword } from "better-auth/crypto";
 import type { Prisma } from "../src/generated/prisma/client";
 import { DEFAULT_SETTINGS } from "../src/lib/flipbook-rules";
 import { createScriptClient } from "./client";
+import { demoEvents } from "./seed/analytics";
 import { demoFlipbooks, type DemoFlipbook } from "./seed/flipbooks";
 import { buildMockPages } from "./seed/pages";
 import { DEMO_PASSWORD, DEMO_USERS } from "./seed/users";
@@ -55,6 +56,12 @@ async function createFlipbook(userId: string, fb: DemoFlipbook) {
       page.elements.map((el) => ({ ...el, properties: el.properties as unknown as Prisma.InputJsonValue })),
     ),
   });
+
+  // Readers for published books; viewCount above matches the VIEW events.
+  if (fb.status === "PUBLISHED" && fb.views) {
+    const events = demoEvents({ id: fb.id, views: fb.views, pageIds: pages.map((p) => p.id) });
+    for (let i = 0; i < events.length; i += 5_000) await prisma.analyticsEvent.createMany({ data: events.slice(i, i + 5_000) });
+  }
 }
 
 async function main() {
@@ -66,7 +73,7 @@ async function main() {
   await createUser(DEMO_USERS.other, passwordHash);
 
   await prisma.subscription.create({
-    data: { userId: DEMO_USERS.marina.id, plan: "LIFETIME", status: "ACTIVE", createdAt: new Date("2026-02-14T12:00:00Z") },
+    data: { userId: DEMO_USERS.marina.id, plan: "PRO", status: "ACTIVE", createdAt: new Date("2026-02-14T12:00:00Z") },
   });
 
   for (const fb of demoFlipbooks) await createFlipbook(DEMO_USERS.marina.id, fb);
@@ -85,13 +92,14 @@ async function main() {
     views: null,
   });
 
-  const [users, flipbooks, pages, elements] = await Promise.all([
+  const [users, flipbooks, pages, elements, events] = await Promise.all([
     prisma.user.count(),
     prisma.flipbook.count(),
     prisma.page.count(),
     prisma.element.count(),
+    prisma.analyticsEvent.count(),
   ]);
-  console.info(`Seeded ${users} users, ${flipbooks} flipbooks, ${pages} pages, ${elements} elements.`);
+  console.info(`Seeded ${users} users, ${flipbooks} flipbooks, ${pages} pages, ${elements} elements, ${events} reader events.`);
   console.info(`Demo login: ${DEMO_USERS.marina.email} / ${DEMO_PASSWORD}`);
 }
 

@@ -47,6 +47,8 @@ export interface EditorState {
   fitScale: number;
   assets: AssetItem[];
   uploads: UploadItem[];
+  /** The plan's page limit for one flipbook. */
+  maxPages: number;
   saveStatus: SaveStatus;
   saveError: string | null;
   /** True from the first edit until the server has confirmed the latest version. */
@@ -124,7 +126,12 @@ function applyPatch(element: PageElement, patch: ElementPatch): PageElement {
 
 export function createEditorStore(
   initialPages: Page[],
-  { save, drafts, assets = [] }: { save: SaveDocument; drafts?: DraftStorage; assets?: AssetItem[] },
+  {
+    save,
+    drafts,
+    assets = [],
+    maxPages = Number.POSITIVE_INFINITY,
+  }: { save: SaveDocument; drafts?: DraftStorage; assets?: AssetItem[]; maxPages?: number },
 ) {
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   // Each save carries a version so a slow response never marks newer edits as saved.
@@ -224,6 +231,7 @@ export function createEditorStore(
       fitScale: 1,
       assets,
       uploads: [],
+      maxPages,
       saveStatus: "saved",
       saveError: null,
       dirty: false,
@@ -265,6 +273,7 @@ export function createEditorStore(
 
       addPage: () => {
         const { pages } = get();
+        if (pages.length >= maxPages) return;
         const template = activePage();
         const index = pages.indexOf(template);
         const page: Page = {
@@ -356,6 +365,7 @@ export function createEditorStore(
         const page = activePage();
         const sources = selected();
         if (sources.length === 0) {
+          if (pages.length >= maxPages) return;
           const copyId = newId("page");
           const copy: Page = { ...page, id: copyId, elements: page.elements.map((el) => ({ ...el, id: newId("el"), pageId: copyId })) };
           const index = pages.indexOf(page);

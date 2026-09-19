@@ -22,16 +22,16 @@ npm run dev:all             # app on http://localhost:3000 + the PDF worker
 
 `npm run dev:all` runs `next dev` and `npm run worker` together. Without the worker, uploaded PDFs stay on "Processing". The MinIO console at http://localhost:9001 (flipbook / flipbook-secret) shows the stored files.
 
-Log in as **marina@studio.co / flipbook-demo**. She has the Lifetime Deal and 12 demo flipbooks.
+Log in as **marina@studio.co / flipbook-demo**. She is on Pro and has 12 demo flipbooks with seeded readers.
 
 **Emails without Resend.** When `RESEND_API_KEY` is empty, verification and password-reset emails are printed to the dev-server console and appended to `.emails/outbox.jsonl`. Open the link from there.
 
 **Google sign-in.** The "Continue with Google" button appears once `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set. Use `http://localhost:3000/api/auth/callback/google` as the redirect URI.
 
-**Plans.** New accounts start on the free plan. Paddle checkout comes later; until then, grant the Lifetime Deal with:
+**Plans.** New accounts start on Free. See [Billing](#billing) to test checkout, or grant Pro by hand (comps, support):
 
 ```bash
-npm run grant-ltd -- someone@example.com
+npm run grant-pro -- someone@example.com
 ```
 
 ## Scripts
@@ -105,6 +105,43 @@ Keyboard shortcuts:
 | Shift while resizing / rotating | Toggle keeping proportions (on by default for pictures) / 15° steps |
 | Alt while dragging | Don't snap |
 | Alt+←/→ on a page thumbnail | Move the page |
+
+## Billing
+
+Two plans (`src/lib/entitlements/index.ts`, prices in `src/lib/billing/catalog.ts`):
+
+| | Free | Pro |
+|---|---|---|
+| Price | $0 | US$22/month or US$180/year |
+| Flipbooks | 3 | 100 |
+| Pages per flipbook | 15 | 300 |
+| PDF size | 20 MB | 100 MB |
+| Storage | 500 MB | 20 GB |
+| Views a month (soft, never blocked) | 1,000 | 250,000 |
+| Editor, templates, image uploads | ✓ | ✓ |
+| No badge, custom address, analytics, reader PDF download | — | ✓ |
+
+Paddle is the merchant of record: it runs checkout, taxes, receipts and the customer portal.
+- **Checkout.** The server creates the transaction with the account's id (`startCheckout` in `src/lib/actions/billing.ts`), and Paddle.js opens it.
+- **Plan changes.** They arrive by webhook at `/api/paddle/webhook`. Each one is signature-checked, applied once (`paddle_events`), and never over a newer event.
+- **Downgrades.** Content is kept. Paid-only settings (badge, downloads) fall back to Free defaults, and books over the page limit stay editable but can't grow.
+
+To test locally with the sandbox:
+
+1. Fill the `PADDLE_*` variables in `.env.local` (see `.env.example`; the sandbox product "Flipbook Pro" and its two prices already exist).
+2. Expose the app: `cloudflared tunnel --url http://localhost:3000`.
+3. In the sandbox dashboard, add a notification destination at `<tunnel URL>/api/paddle/webhook` for the `subscription.*` events, and put its secret in `PADDLE_WEBHOOK_SECRET`.
+4. Upgrade from `/dashboard/billing` with a [test card](https://developer.paddle.com/concepts/payment-methods/credit-debit-card#test-payment-method) (4242 4242 4242 4242, any future date, CVC 100).
+
+The legal pages (`/terms`, `/privacy`, `/refunds`) are drafts. Fill in the `[PLACEHOLDERS]` in `src/components/marketing/legal-page.tsx` and have them reviewed before launch; Paddle checks them when approving the domain.
+
+## Analytics
+
+The public viewer and embeds send reader events to `/api/analytics/events`: a view per visit, each page seen with the time spent on it, shares and downloads.
+- **Collected on every plan**, so upgrading to Pro shows past readers.
+- **Not counted:** owners previewing their own books, bots, and a second view from the same tab within 30 minutes.
+- **No cookies, no IP addresses.** A random id per tab groups a visit, and unique readers come from a daily salted hash (`ANALYTICS_SALT`).
+- **Countries** appear when the app runs behind Cloudflare or Vercel, which send the visitor's country in a header.
 
 ## Deploying
 

@@ -3,8 +3,9 @@
 import "server-only";
 
 import { cache } from "react";
-import { DEMO_AVG_READ_SECONDS, demoAnalytics } from "@/lib/analytics/demo";
+import { getAnalyticsSummary } from "@/lib/analytics/summary";
 import { getOptionalUser, requireUser } from "@/lib/auth/session";
+import { resolveEntitlements } from "@/lib/entitlements";
 import { hasPages } from "@/lib/flipbook-rules";
 import type { AnalyticsRange, Billing } from "@/lib/types";
 import * as assetRepo from "./assets";
@@ -51,7 +52,7 @@ export async function getAssets() {
 }
 
 export async function getDashboardStats() {
-  return repo.getDashboardStats((await requireUser()).id, DEMO_AVG_READ_SECONDS);
+  return repo.getDashboardStats((await requireUser()).id);
 }
 
 export async function getTopFlipbook() {
@@ -62,20 +63,13 @@ export const getEntitlements = cache(async () => repo.getEntitlements((await req
 
 export const getBilling = cache(async (): Promise<Billing> => {
   const user = await requireUser();
-  const [plan, usage] = await Promise.all([repo.getPlan(user.id), repo.getUsage(user.id)]);
-  return {
-    plan: plan.plan,
-    provider: "paddle",
-    purchasedAt: plan.purchasedAt,
-    expiresAt: plan.expiresAt,
-    entitlements: await repo.getEntitlements(user.id),
-    usage,
-  };
+  const [{ plan, subscription }, usage] = await Promise.all([repo.getPlan(user.id), repo.getUsage(user.id)]);
+  return { plan, provider: "paddle", subscription, entitlements: resolveEntitlements(plan), usage };
 });
 
-/** Demo numbers until the analytics phase; access rules are already the real ones. */
+/** Reader analytics for one of the user's published flipbooks. */
 export async function getAnalytics(id: string, range: AnalyticsRange) {
   const flipbook = await getFlipbook(id);
   if (!flipbook || flipbook.status !== "PUBLISHED") return null;
-  return demoAnalytics(range);
+  return getAnalyticsSummary(flipbook.id, flipbook.pageCount, range);
 }

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { PageCanvas } from "@/components/flipbook/page-canvas";
 import type { FlipbookSettings, Page } from "@/lib/types";
 import { cn, isDarkColor } from "@/lib/utils";
+import { useReaderAnalytics } from "./reader-analytics";
 import { clampSpread, lastSpread, spreadLabel, spreadOf, spreadPages } from "./spreads";
 
 function Folio({ n, side }: { n: number; side: "left" | "right" }) {
@@ -28,6 +29,7 @@ export function Viewer({
   variant = "public",
   publicUrl,
   downloadHref = null,
+  trackingId = null,
 }: {
   flipbook: { title: string; settings: FlipbookSettings };
   pages: Page[];
@@ -36,6 +38,8 @@ export function Viewer({
   publicUrl: string;
   /** Original-PDF download, when the owner allows it. */
   downloadHref?: string | null;
+  /** Flipbook id to record reader analytics for; null for books that aren't public. */
+  trackingId?: string | null;
 }) {
   const { settings } = flipbook;
   const pageCount = pages.length;
@@ -51,6 +55,7 @@ export function Viewer({
   const right = numbers.right ? pages[numbers.right - 1] : undefined;
   const firstVisible = numbers.left ?? numbers.right ?? 1;
   const counter = spreadLabel(spread, pageCount);
+  const { track } = useReaderAnalytics(trackingId, [numbers.left, numbers.right].filter((n): n is number => Boolean(n)));
 
   const go = useCallback((next: number) => setSpread(clampSpread(next, pageCount)), [pageCount]);
 
@@ -103,6 +108,7 @@ export function Viewer({
 
   const share = async () => {
     await navigator.clipboard.writeText(`${publicUrl}?page=${firstVisible}`);
+    track("SHARE");
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -145,7 +151,7 @@ export function Viewer({
               </button>
             )}
             {downloadHref && (
-              <a href={downloadHref} className={cn(chromeButton, "inline-flex items-center")} download>
+              <a href={downloadHref} className={cn(chromeButton, "inline-flex items-center")} download onClick={() => track("DOWNLOAD")}>
                 Download
               </a>
             )}
