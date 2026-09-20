@@ -1,15 +1,15 @@
-import { Settings } from "lucide-react";
 import type { Metadata } from "next";
-import { PlaceholderPage } from "@/components/dashboard/placeholder-page";
+import { AccountSettings } from "@/components/account/account-settings";
+import { getCurrentUser, hasPasswordAccount } from "@/lib/data";
 
 export const metadata: Metadata = { title: "Settings" };
 
-export default function AccountSettingsPage() {
+export default async function AccountSettingsPage() {
+  const user = await getCurrentUser();
   return (
-    <PlaceholderPage
-      icon={Settings}
-      title="Account settings"
-      body="Profile, password, email and account deletion will live here once sign-in is connected."
+    <AccountSettings
+      user={{ name: user.name, email: user.email, emailVerified: user.emailVerified }}
+      hasPassword={await hasPasswordAccount(user.id)}
     />
   );
 }

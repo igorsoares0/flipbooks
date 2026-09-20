@@ -5,7 +5,9 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { prisma } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
-import { resetPasswordEmail, verifyEmail } from "@/lib/email/templates";
+import { changeEmailConfirmation, deleteAccountEmail, resetPasswordEmail, verifyEmail, welcomeEmail } from "@/lib/email/templates";
+import { purgeAccount } from "@/lib/data/account";
+import { siteUrl } from "@/lib/site";
 
 const google =
   process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
@@ -36,6 +38,31 @@ export const auth = betterAuth({
     sendVerificationEmail: async ({ user, url }) => deliver(verifyEmail({ to: user.email, name: user.name, url })),
   },
   socialProviders: google ? { google } : {},
+  user: {
+    changeEmail: {
+      enabled: true,
+      // Two steps for verified accounts: confirm from the current address, then verify the
+      // new one (Better Auth sends that second email through sendVerificationEmail).
+      sendChangeEmailConfirmation: async ({ user, newEmail, url }) =>
+        deliver(changeEmailConfirmation({ to: user.email, name: user.name, newEmail, url })),
+    },
+    deleteUser: {
+      enabled: true,
+      // Confirmed by email, which works the same for password and Google accounts.
+      sendDeleteAccountVerification: async ({ user, url }) => deliver(deleteAccountEmail({ to: user.email, name: user.name, url })),
+      // Files and the Paddle subscription go before the rows the database cascades away.
+      beforeDelete: async (user) => {
+        await purgeAccount(user.id);
+      },
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => deliver(welcomeEmail({ to: user.email, name: user.name, url: new URL("/dashboard", siteUrl).toString() })),
+      },
+    },
+  },
   // AUTH_RATE_LIMIT=off lets the e2e suite sign in from many parallel workers.
   rateLimit: process.env.AUTH_RATE_LIMIT === "off" ? { enabled: false } : undefined,
   plugins: [nextCookies()],

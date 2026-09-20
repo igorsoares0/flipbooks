@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { E2E_PADDLE_WEBHOOK_SECRET } from "./e2e/paddle";
+import { E2E_PADDLE_WEBHOOK_SECRET, E2E_PRICE_MONTH, E2E_PRICE_YEAR } from "./e2e/paddle";
 import { TEST_DATABASE_URL } from "./tests/reset-test-db";
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
@@ -37,6 +37,10 @@ const TEST_ENV = {
   PADDLE_WEBHOOK_SECRET: E2E_PADDLE_WEBHOOK_SECRET,
   PADDLE_API_KEY: "",
   NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "",
+  // The app also reads .env.local, so these are set here to override the sandbox ids:
+  // the webhook ignores subscriptions to prices that aren't ours.
+  PADDLE_PRICE_PRO_MONTH: E2E_PRICE_MONTH,
+  PADDLE_PRICE_PRO_YEAR: E2E_PRICE_YEAR,
 };
 
 export default defineConfig({

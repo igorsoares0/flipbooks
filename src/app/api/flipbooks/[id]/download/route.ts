@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { getOptionalUser } from "@/lib/auth/session";
 import { getViewableFlipbook } from "@/lib/data";
 import { getOriginalPdfKey } from "@/lib/data/flipbooks";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { presignGet } from "@/lib/storage";
 
 // Downloads the original PDF: readers only when the owner allowed it (settings.showDownload),
 // owners always. Redirects to a short-lived signed URL so the file never passes through here.
-export async function GET(_request: Request, { params }: RouteContext<"/api/flipbooks/[id]/download">) {
+export async function GET(request: Request, { params }: RouteContext<"/api/flipbooks/[id]/download">) {
   const { id } = await params;
+  const limit = rateLimit(`download:${clientIp(request.headers)}`, { limit: 60, windowMs: 60_000 });
+  if (!limit.ok) return new NextResponse("Too many requests", { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } });
   const flipbook = await getViewableFlipbook({ id });
   const notFound = () => new NextResponse("Not found", { status: 404 });
   if (!flipbook || flipbook.type !== "PDF") return notFound();

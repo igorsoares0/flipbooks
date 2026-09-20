@@ -7,6 +7,7 @@ import { countFlipbooks, getEntitlements } from "@/lib/data/flipbooks";
 import { flipbookLimitViolation } from "@/lib/entitlements/policy";
 import { checkUploadAllowed, confirmPdfUpload, createPdfUpload, retryPdfProcessing } from "@/lib/data/uploads";
 import { PDF_CONTENT_TYPE } from "@/lib/flipbook-rules";
+import { rateLimit, UPLOADS_PER_HOUR } from "@/lib/rate-limit";
 import { presignPut } from "@/lib/storage";
 import type { ActionResult } from "./flipbooks";
 
@@ -23,6 +24,8 @@ export async function startPdfUpload(input: unknown): Promise<StartUploadResult>
   const user = await requireUser();
   const parsed = startSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid file." };
+
+  if (!rateLimit(`upload:${user.id}`, UPLOADS_PER_HOUR).ok) return { ok: false, error: "That's a lot of uploads at once. Try again in a few minutes." };
 
   const entitlements = await getEntitlements(user.id);
   const overLimit = flipbookLimitViolation(entitlements, await countFlipbooks(user.id));

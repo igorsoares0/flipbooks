@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth/session";
 import * as assets from "@/lib/data/assets";
 import { getEntitlements } from "@/lib/data/flipbooks";
+import { rateLimit, UPLOADS_PER_HOUR } from "@/lib/rate-limit";
 import { presignPut } from "@/lib/storage";
 import type { ActionResult } from "./flipbooks";
 
@@ -25,6 +26,8 @@ export async function startAssetUpload(input: unknown): Promise<StartAssetUpload
   const user = await requireUser();
   const parsed = startSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid file." };
+
+  if (!rateLimit(`upload:${user.id}`, UPLOADS_PER_HOUR).ok) return { ok: false, error: "That's a lot of uploads at once. Try again in a few minutes." };
 
   const created = await assets.createAssetUpload(user.id, await getEntitlements(user.id), parsed.data);
   if (!created.ok) return created;

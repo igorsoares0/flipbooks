@@ -135,6 +135,21 @@ To test locally with the sandbox:
 
 The legal pages (`/terms`, `/privacy`, `/refunds`) are drafts. Fill in the `[PLACEHOLDERS]` in `src/components/marketing/legal-page.tsx` and have them reviewed before launch; Paddle checks them when approving the domain.
 
+## Accounts
+
+`/dashboard/settings` covers the profile, how people sign in, and closing an account.
+- **Email changes** take two steps for verified accounts: confirm from the current address, then verify the new one. Unverified accounts just verify the new address.
+- **Password changes** sign the account out everywhere else. Accounts created through Google are offered a link to set a password instead.
+- **Deleting an account** is confirmed by an emailed link. `purgeAccount` (`src/lib/data/account.ts`) then cancels any Paddle subscription and deletes the flipbooks' files and the image library from storage; the database cascade removes the rows. Public links and embeds stop working, and it can't be undone.
+
+## Share previews
+
+Every public flipbook renders its own preview image at `/f/<slug>/opengraph-image` (also used for X), and the site has one at `/opengraph-image`. The card shows the title, description, address and page count, plus the rendered cover for books made from a PDF. Books that aren't published and public fall back to the generic card, so nothing private leaks. The heading uses `public/fonts/InstrumentSerif-Regular.ttf` (OFL); without that file the built-in font is used.
+
+## Limits
+
+Beyond the plan limits, public endpoints are rate limited in memory (`src/lib/rate-limit.ts`): reader events 120 a minute per IP, PDF downloads 60 a minute per IP, and uploads 30 an hour per account. Sign-in has its own limiter inside Better Auth. These counters live in the process, which suits the single-container deployment; several instances would need the Redis step from the spec (§5.5).
+
 ## Analytics
 
 The public viewer and embeds send reader events to `/api/analytics/events`: a view per visit, each page seen with the time spent on it, shares and downloads.

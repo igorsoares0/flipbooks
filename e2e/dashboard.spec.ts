@@ -147,3 +147,26 @@ test.describe("row menu", () => {
     await expect(page.getByText("Investor Deck", { exact: true })).toBeVisible();
   });
 });
+
+test.describe("pagination", () => {
+  test("pages through a long list, keeping the search", async ({ page }) => {
+    const user = await signInAsNewUser(page);
+    for (let i = 0; i < 22; i++) await cloneFlipbook("fb_2Hc6", user.id);
+
+    await page.goto("/dashboard/flipbooks");
+    const rows = page.getByRole("button", { name: /^More actions for / });
+    await expect(rows).toHaveCount(20);
+    await expect(page.getByText("1–20 of 22")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Previous" })).toHaveAttribute("aria-disabled", "true");
+
+    await page.getByRole("link", { name: "Next" }).click();
+    await expect(page).toHaveURL(/page=2/);
+    await expect(rows).toHaveCount(2);
+    await expect(page.getByRole("link", { name: "Next" })).toHaveAttribute("aria-disabled", "true");
+
+    await page.goto("/dashboard/flipbooks?q=investor");
+    await expect(page.getByText("22 results for")).toBeVisible();
+    await page.getByRole("link", { name: "Next" }).click();
+    await expect(page).toHaveURL(/q=investor&page=2/);
+  });
+});

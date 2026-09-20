@@ -82,6 +82,13 @@ export async function readRange(key: string, start: number, end: number) {
   return Buffer.from(await result.Body!.transformToByteArray());
 }
 
+/** The whole object in memory. Only for small files (thumbnails, headers). */
+export async function getObject(key: string) {
+  const { client, bucket } = storage();
+  const result = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  return Buffer.from(await result.Body!.transformToByteArray());
+}
+
 export async function putObject(key: string, body: Buffer, contentType: string) {
   const { client, bucket } = storage();
   await client.send(

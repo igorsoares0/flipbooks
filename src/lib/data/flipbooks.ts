@@ -12,18 +12,24 @@ import { withPageImageUrls, withThumbnailUrl } from "./urls";
 // Read side. Every function that returns private data takes the owner's id and
 // filters on it, so a flipbook that belongs to someone else is simply "not found".
 
-export async function listFlipbooks(userId: string, { query, take }: { query?: string; take?: number } = {}) {
+/** Owner-scoped filter shared by the list and its count, so pages and totals agree. */
+function flipbookFilter(userId: string, query?: string) {
   const q = query?.trim();
+  return { userId, ...(q ? { title: { contains: q, mode: "insensitive" as const } } : {}) };
+}
+
+export async function listFlipbooks(userId: string, { query, take, skip }: { query?: string; take?: number; skip?: number } = {}) {
   const rows = await prisma.flipbook.findMany({
-    where: { userId, ...(q ? { title: { contains: q, mode: "insensitive" } } : {}) },
+    where: flipbookFilter(userId, query),
     orderBy: { updatedAt: "desc" },
     take,
+    skip,
   });
   return Promise.all(rows.map((row) => withThumbnailUrl(toFlipbook(row), row)));
 }
 
-export async function countFlipbooks(userId: string) {
-  return prisma.flipbook.count({ where: { userId } });
+export async function countFlipbooks(userId: string, query?: string) {
+  return prisma.flipbook.count({ where: flipbookFilter(userId, query) });
 }
 
 export async function getOwnedFlipbook(userId: string, id: string) {
@@ -44,6 +50,14 @@ export async function getReadableFlipbook(by: { slug: string } | { id: string },
   if (viewerId && viewerId === row.userId) return hasPages(flipbook) ? withThumbnailUrl(flipbook, row) : null;
   if (row.status !== "PUBLISHED" || row.visibility === "PRIVATE" || row.pageCount === 0) return null;
   return withThumbnailUrl(flipbook, row);
+}
+
+/** A published, public flipbook for share previews, with the storage key of its cover. */
+export async function getShareTarget(slug: string) {
+  const row = await prisma.flipbook.findUnique({ where: { slug } });
+  if (!row || row.status !== "PUBLISHED" || row.visibility !== "PUBLIC" || row.pageCount === 0) return null;
+  const flipbook = toFlipbook(row);
+  return { flipbook: { ...flipbook, settings: effectiveSettings(flipbook.settings, await getEntitlements(row.userId)) }, thumbnailKey: row.thumbnailKey };
 }
 
 export async function getPages(flipbookId: string, { pageNumbers }: { pageNumbers?: number[] } = {}) {

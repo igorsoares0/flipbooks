@@ -5,6 +5,7 @@ import "server-only";
 import { cache } from "react";
 import { getAnalyticsSummary } from "@/lib/analytics/summary";
 import { getOptionalUser, requireUser } from "@/lib/auth/session";
+import { prisma } from "@/lib/db";
 import { resolveEntitlements } from "@/lib/entitlements";
 import { hasPages } from "@/lib/flipbook-rules";
 import type { AnalyticsRange, Billing } from "@/lib/types";
@@ -13,11 +14,19 @@ import * as repo from "./flipbooks";
 
 export const isViewable = hasPages;
 
+/** Flipbooks per page on /dashboard/flipbooks. */
+export const PER_PAGE = 20;
+
 export const getCurrentUser = requireUser;
 
-export async function getFlipbooks(query?: string) {
+/** One page of the user's flipbooks, newest first, with the total for the pager. */
+export async function getFlipbookPage({ query, page = 1, perPage = PER_PAGE }: { query?: string; page?: number; perPage?: number }) {
   const user = await requireUser();
-  return repo.listFlipbooks(user.id, { query });
+  const [flipbooks, total] = await Promise.all([
+    repo.listFlipbooks(user.id, { query, take: perPage, skip: (page - 1) * perPage }),
+    repo.countFlipbooks(user.id, query),
+  ]);
+  return { flipbooks, total, page, perPage, pageCount: Math.max(1, Math.ceil(total / perPage)) };
 }
 
 export async function getRecentFlipbooks(limit = 6) {
@@ -44,6 +53,11 @@ export async function getEditorDocument(id: string) {
   const flipbook = await getFlipbook(id);
   if (!flipbook || !hasPages(flipbook)) return null;
   return { flipbook, pages: await repo.getPages(id) };
+}
+
+/** Whether the account can sign in with a password (Google-only accounts can't, until they set one). */
+export async function hasPasswordAccount(userId: string) {
+  return (await prisma.account.count({ where: { userId, providerId: "credential" } })) > 0;
 }
 
 /** The signed-in user's image library, newest first, with signed URLs. */

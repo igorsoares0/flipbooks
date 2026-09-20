@@ -8,7 +8,7 @@ import { getOptionalUser } from "@/lib/auth/session";
 export const metadata: Metadata = { title: "Log in" };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
-  const { next, reset } = await searchParams;
+  const { next, reset, deleted } = await searchParams;
   const destination = safeNext(next);
   if (await getOptionalUser()) redirect(destination);
 
@@ -17,7 +17,13 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       mode="login"
       googleEnabled={isGoogleEnabled}
       next={destination}
-      notice={reset ? "Password updated. Log in with your new password." : undefined}
+      notice={
+        deleted
+          ? "Your account and everything in it was deleted. Sorry to see you go."
+          : reset
+            ? "Password updated. Log in with your new password."
+            : undefined
+      }
     />
   );
 }

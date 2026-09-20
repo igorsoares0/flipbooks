@@ -85,6 +85,39 @@ export function processingFailedEmail({
   };
 }
 
+export function welcomeEmail({ to, name, url }: { to: string; name: string; url: string }): Email {
+  const body = `Hi ${name}, welcome to Flipbook. Upload a PDF or start from a template, then publish a link you can share or embed anywhere.`;
+  const footnote = "You get this email once, when you create an account.";
+  return {
+    to,
+    subject: "Welcome to Flipbook",
+    html: layout({ heading: "Make your first flipbook", body, cta: "Open your dashboard", url, footnote }),
+    text: `${body}\n\nDashboard: ${url}\n\n${footnote}`,
+  };
+}
+
+export function changeEmailConfirmation({ to, name, newEmail, url }: { to: string; name: string; newEmail: string; url: string }): Email {
+  const body = `Hi ${name}, you asked to sign in to Flipbook with ${newEmail} from now on. Confirm here, and we'll email ${newEmail} to verify it. Your current address works until then.`;
+  const footnote = "If you didn't ask to change your email, ignore this and nothing changes.";
+  return {
+    to,
+    subject: "Confirm changing your email address",
+    html: layout({ heading: "Change your email?", body, cta: "Confirm the change", url, footnote }),
+    text: `${body}\n\nConfirm: ${url}\n\n${footnote}`,
+  };
+}
+
+export function deleteAccountEmail({ to, name, url }: { to: string; name: string; url: string }): Email {
+  const body = `Hi ${name}, confirm that you want to delete your Flipbook account. This removes your flipbooks, their pages and images, and their analytics, and public links stop working. It can't be undone.`;
+  const footnote = "The link expires in 24 hours. If you didn't ask for this, ignore this email and your account stays as it is.";
+  return {
+    to,
+    subject: "Confirm deleting your Flipbook account",
+    html: layout({ heading: "Delete your account?", body, cta: "Delete my account", url, footnote }),
+    text: `${body}\n\nConfirm: ${url}\n\n${footnote}`,
+  };
+}
+
 export function welcomeToProEmail({ to, name, url }: { to: string; name: string; url: string }): Email {
   const body = `Hi ${name}, thanks for subscribing. Pro is active on your account: no Flipbook badge, custom addresses, reader analytics and room for 100 flipbooks.`;
   const footnote = "Paddle, our payment provider, emails your receipt separately. Manage your plan from the billing page.";
