@@ -106,6 +106,15 @@ Keyboard shortcuts:
 | Alt while dragging | Don't snap |
 | Alt+←/→ on a page thumbnail | Move the page |
 
+## Viewer
+
+Pages turn like a book: the grabbed corner is carried towards the spine, the sheet folds along the crease behind it and lands on the page underneath, with the shading and cast shadow following the fold. It is flat CSS — two clipped layers and a 2D transform — over the same `PageCanvas` the editor draws, so text stays crisp and selectable through the turn. The commercial readers fold the same way, but over an image of the page, which costs them selectable text.
+
+- `src/components/viewer/turn-state.ts` decides the turn: direction, where the corner has been carried to, the two polygons the fold cuts the page into, the transform that lays the flap over the page, and whether a release completes or springs back. All of it is pure and unit-tested.
+- `src/components/viewer/page-turn.tsx` draws it. Swapping the animation for another engine later is a change to that file alone.
+- Readers turn pages with the arrows, the keyboard, the thumbnails, or by dragging a page's outer corner — which corner they take decides which way the fold slants. `prefers-reduced-motion` swaps pages without animating, and jumps of more than one spread skip the animation.
+- Under 700px the viewer shows one page at a time, with the arrows over the page. Positions are kept as page numbers, so resizing or rotating a phone keeps the reader's place.
+
 ## Billing
 
 Two plans (`src/lib/entitlements/index.ts`, prices in `src/lib/billing/catalog.ts`):

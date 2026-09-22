@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampSpread, lastSpread, spreadLabel, spreadOf, spreadPages } from "./spreads";
+import { clampSpread, clampView, lastSpread, lastView, spreadLabel, spreadOf, spreadPages, viewLabel, viewOfPage, viewPages } from "./spreads";
 
 describe("spreads", () => {
   it("shows the cover alone on the right", () => {
@@ -35,5 +35,26 @@ describe("spreads", () => {
     expect(clampSpread(-1, 64)).toBe(0);
     expect(clampSpread(40, 64)).toBe(32);
     expect(clampSpread(5, 64)).toBe(5);
+  });
+});
+
+describe("views", () => {
+  it("shows two pages on a wide screen and one on a phone", () => {
+    expect(viewPages(2, 64, "spread")).toEqual({ left: 4, right: 5 });
+    expect(viewPages(4, 64, "single")).toEqual({ left: null, right: 5 });
+    expect(lastView(64, "spread")).toBe(32);
+    expect(lastView(64, "single")).toBe(63);
+  });
+
+  it("keeps the reader's page when the layout changes", () => {
+    expect(viewOfPage(7, "spread")).toBe(3);
+    expect(viewOfPage(7, "single")).toBe(6);
+    expect(viewPages(viewOfPage(7, "single"), 64, "single")).toEqual({ left: null, right: 7 });
+  });
+
+  it("clamps and labels single pages", () => {
+    expect(clampView(99, 64, "single")).toBe(63);
+    expect(viewLabel(63, 64, "single")).toBe("64");
+    expect(viewLabel(2, 64, "spread")).toBe("4–5");
   });
 });

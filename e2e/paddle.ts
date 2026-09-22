@@ -7,8 +7,16 @@ export const E2E_PADDLE_WEBHOOK_SECRET = "e2e-paddle-webhook-secret";
 export const E2E_PRICE_MONTH = "pri_e2e_month";
 export const E2E_PRICE_YEAR = "pri_e2e_year";
 
+/**
+ * Paddle stamps events to the millisecond and the webhook drops one that isn't newer than
+ * what it already applied. Real events are seconds apart; a test posts them back to back, so
+ * each notification takes the next millisecond.
+ */
+let occurredAt = Date.now();
+
 export function paddleNotification(eventType: string, data: Record<string, unknown>) {
-  const body = JSON.stringify({ event_id: `evt_${randomUUID()}`, event_type: eventType, occurred_at: new Date().toISOString(), data });
+  occurredAt = Math.max(occurredAt + 1, Date.now());
+  const body = JSON.stringify({ event_id: `evt_${randomUUID()}`, event_type: eventType, occurred_at: new Date(occurredAt).toISOString(), data });
   const ts = Math.floor(Date.now() / 1000);
   const h1 = createHmac("sha256", E2E_PADDLE_WEBHOOK_SECRET).update(`${ts}:${body}`).digest("hex");
   return { data: body, headers: { "content-type": "application/json", "paddle-signature": `ts=${ts};h1=${h1}` } };

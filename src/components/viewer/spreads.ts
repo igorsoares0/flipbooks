@@ -25,3 +25,29 @@ export function spreadLabel(spread: number, pageCount: number) {
 export function clampSpread(spread: number, pageCount: number) {
   return Math.max(0, Math.min(lastSpread(pageCount), spread));
 }
+
+// A "view" is what the reader sees at once: a spread of two pages on a wide screen, a
+// single page on a phone. Navigation, deep links and the turn all work in views.
+
+export type ViewMode = "spread" | "single";
+
+export const lastView = (pageCount: number, mode: ViewMode) => (mode === "single" ? Math.max(0, pageCount - 1) : lastSpread(pageCount));
+
+/** Pages on each side of a view; a single-page view fills the right side, like the cover. */
+export function viewPages(view: number, pageCount: number, mode: ViewMode) {
+  if (mode === "spread") return spreadPages(view, pageCount);
+  const page = view + 1;
+  return { left: null, right: page >= 1 && page <= pageCount ? page : null };
+}
+
+/** The view that shows a page, so switching between one and two pages keeps the reader's place. */
+export const viewOfPage = (page: number, mode: ViewMode) => (mode === "single" ? Math.max(0, page - 1) : spreadOf(page));
+
+export function clampView(view: number, pageCount: number, mode: ViewMode) {
+  return Math.max(0, Math.min(lastView(pageCount, mode), view));
+}
+
+export function viewLabel(view: number, pageCount: number, mode: ViewMode) {
+  if (mode === "spread") return spreadLabel(view, pageCount);
+  return String(clampView(view, pageCount, mode) + 1);
+}

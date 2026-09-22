@@ -2,12 +2,16 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { PageCanvas } from "@/components/flipbook/page-canvas";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FlipbookSettings, Page } from "@/lib/types";
 import { cn, isDarkColor } from "@/lib/utils";
+import { PageTurn } from "./page-turn";
 import { useReaderAnalytics } from "./reader-analytics";
-import { clampSpread, lastSpread, spreadLabel, spreadOf, spreadPages } from "./spreads";
+import { clampView, lastView, viewLabel, viewOfPage, viewPages, type ViewMode } from "./spreads";
+import { useMediaQuery } from "./use-media-query";
+
+/** One page at a time on a phone; two on anything wider, like a printed book. */
+const SINGLE_PAGE_QUERY = "(max-width: 700px)";
 
 function Folio({ n, side }: { n: number; side: "left" | "right" }) {
   return (
@@ -43,35 +47,63 @@ export function Viewer({
 }) {
   const { settings } = flipbook;
   const pageCount = pages.length;
-  const maxSpread = lastSpread(pageCount);
-  const [spread, setSpread] = useState(() => clampSpread(spreadOf(Math.max(1, initialPage)), pageCount));
+  const single = useMediaQuery(SINGLE_PAGE_QUERY);
+  const mode: ViewMode = single ? "single" : "spread";
+  const maxView = lastView(pageCount, mode);
+  // Positions are kept as page numbers, so switching between one and two pages (rotating a
+  // phone, resizing) keeps the reader where they were. `target` is where they're heading;
+  // `landed` is the page the book has actually turned to.
+  const [target, setTarget] = useState(() => Math.max(1, Math.min(initialPage, pageCount)));
+  const [landed, setLanded] = useState(target);
+  const view = clampView(viewOfPage(target, mode), pageCount, mode);
+  const shown = clampView(viewOfPage(landed, mode), pageCount, mode);
   const [showThumbs, setShowThumbs] = useState(settings.showThumbnails);
   const [zoomed, setZoomed] = useState(false);
   const [copied, setCopied] = useState(false);
   const thumbRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const numbers = spreadPages(spread, pageCount);
-  const left = numbers.left ? pages[numbers.left - 1] : undefined;
-  const right = numbers.right ? pages[numbers.right - 1] : undefined;
+  const numbers = viewPages(shown, pageCount, mode);
   const firstVisible = numbers.left ?? numbers.right ?? 1;
-  const counter = spreadLabel(spread, pageCount);
+  const counter = viewLabel(shown, pageCount, mode);
+  // Reading time is counted for the pages on screen, so it starts once the turn lands.
   const { track } = useReaderAnalytics(trackingId, [numbers.left, numbers.right].filter((n): n is number => Boolean(n)));
 
-  const go = useCallback((next: number) => setSpread(clampSpread(next, pageCount)), [pageCount]);
+  /** Navigates to a view; positions are stored as the first page it shows. */
+  const go = useCallback(
+    (next: number) => {
+      const pages = viewPages(clampView(next, pageCount, mode), pageCount, mode);
+      setTarget(pages.left ?? pages.right ?? 1);
+    },
+    [pageCount, mode],
+  );
+
+  /**
+   * The book finished turning. Only a page the reader dragged over moves where they were
+   * heading; a click's landing must not cancel a second click made while it animated.
+   */
+  const onSettled = useCallback(
+    (settled: number, moved: boolean) => {
+      const pages = viewPages(settled, pageCount, mode);
+      const page = pages.left ?? pages.right ?? 1;
+      setLanded(page);
+      if (moved) setTarget(page);
+    },
+    [pageCount, mode],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === "ArrowLeft" || e.key === "PageUp") go(spread - 1);
-      else if (e.key === "ArrowRight" || e.key === "PageDown") go(spread + 1);
+      if (e.key === "ArrowLeft" || e.key === "PageUp") go(view - 1);
+      else if (e.key === "ArrowRight" || e.key === "PageDown") go(view + 1);
       else if (e.key === "Home") go(0);
-      else if (e.key === "End") go(maxSpread);
+      else if (e.key === "End") go(maxView);
       else return;
       e.preventDefault();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [go, spread, maxSpread]);
+  }, [go, view, maxView]);
 
   // Deep link: keep ?page= in sync so a copied URL reopens the same spread.
   useEffect(() => {
@@ -81,14 +113,16 @@ export function Viewer({
     thumbRefs.current[firstVisible - 1]?.scrollIntoView({ block: "nearest", inline: "center" });
   }, [firstVisible]);
 
-  // Warm the cache with the next spread's page images so turning the page is instant.
+  // Warm the cache with the neighbouring pages so a turn never shows a blank sheet.
   useEffect(() => {
-    const next = spreadPages(Math.min(spread + 1, maxSpread), pageCount);
-    for (const n of [next.left, next.right]) {
-      const url = n ? pages[n - 1]?.backgroundImageUrl : null;
-      if (url) new Image().src = url;
+    for (const step of [1, -1]) {
+      const near = viewPages(clampView(shown + step, pageCount, mode), pageCount, mode);
+      for (const n of [near.left, near.right]) {
+        const url = n ? pages[n - 1]?.backgroundImageUrl : null;
+        if (url) new Image().src = url;
+      }
     }
-  }, [spread, maxSpread, pageCount, pages]);
+  }, [shown, pageCount, pages, mode]);
 
   const dark = isDarkColor(settings.backgroundColor);
   const fg = dark ? "text-on-dark" : "text-ink";
@@ -102,9 +136,6 @@ export function Viewer({
     fg,
     dark ? "bg-white/[.04] enabled:hover:bg-white/[.12]" : "bg-ink/[.03] enabled:hover:bg-ink/[.08]",
   );
-
-  const sample = pages[0];
-  const ratio = sample ? (sample.width * 2) / sample.height : 1.5;
 
   const share = async () => {
     await navigator.clipboard.writeText(`${publicUrl}?page=${firstVisible}`);
@@ -164,43 +195,33 @@ export function Viewer({
         </header>
       )}
 
-      <div className="flex min-h-0 flex-1 items-center justify-center gap-[22px] px-6 max-sm:gap-2 max-sm:px-2">
-        <button className={navButton} aria-label="Previous pages" disabled={spread === 0} onClick={() => go(spread - 1)}>
+      {/* On a phone the arrows sit over the page, so one page can use the whole width. */}
+      <div className="relative flex min-h-0 flex-1 items-center justify-center gap-[22px] px-6 max-sm:gap-2 max-sm:px-2">
+        <button
+          className={cn(navButton, single && "absolute top-1/2 left-2 z-10 -translate-y-1/2 backdrop-blur-sm")}
+          aria-label="Previous pages"
+          disabled={view === 0}
+          onClick={() => go(view - 1)}
+        >
           <ChevronLeft className="size-4" strokeWidth={1.6} />
         </button>
 
-        <div className="flex h-full min-w-0 flex-1 items-center justify-center overflow-hidden">
-          {/* Height-driven sizing is load-bearing: an auto-width aspect-ratio flex item collapses. */}
-          <div
-            className="flex max-w-full drop-shadow-[0_24px_70px_rgba(0,0,0,.55)]"
-            style={
-              {
-                aspectRatio: ratio,
-                height: `min(74vh, 100%, calc((100vw - 176px) / ${ratio}))`,
-                transform: zoomed ? "scale(1.3)" : undefined,
-              } as CSSProperties
-            }
-          >
-            <div className="h-full w-1/2">
-              {left && (
-                <PageCanvas page={left} className="size-full rounded-l-[3px]" style={{ aspectRatio: "auto" }}>
-                  <div className="pointer-events-none absolute inset-0 shadow-[inset_-14px_0_24px_-18px_rgba(0,0,0,.6)]" />
-                  {left.pageNumber > 1 && <Folio n={left.pageNumber} side="left" />}
-                </PageCanvas>
-              )}
-            </div>
-            <div className="h-full w-1/2">
-              {right && (
-                <PageCanvas page={right} className="size-full rounded-r-[3px]" style={{ aspectRatio: "auto" }}>
-                  <div className="pointer-events-none absolute inset-0 shadow-[inset_14px_0_24px_-18px_rgba(0,0,0,.45)]" />
-                  {right.pageNumber > 1 && <Folio n={right.pageNumber} side="right" />}
-                </PageCanvas>
-              )}
-            </div>
-          </div>
-        </div>
+        <PageTurn
+          pages={pages}
+          view={view}
+          settled={shown}
+          mode={mode}
+          onSettled={onSettled}
+          zoomed={zoomed}
+          folio={(page, side) => (page.pageNumber > 1 ? <Folio n={page.pageNumber} side={side} /> : null)}
+        />
 
-        <button className={navButton} aria-label="Next pages" disabled={spread === maxSpread} onClick={() => go(spread + 1)}>
+        <button
+          className={cn(navButton, single && "absolute top-1/2 right-2 z-10 -translate-y-1/2 backdrop-blur-sm")}
+          aria-label="Next pages"
+          disabled={view === maxView}
+          onClick={() => go(view + 1)}
+        >
           <ChevronRight className="size-4" strokeWidth={1.6} />
         </button>
       </div>
@@ -209,7 +230,7 @@ export function Viewer({
         {variant === "public" && showThumbs && (
           <div className="flex min-w-0 gap-1.5 overflow-x-auto p-1.5 max-sm:hidden" aria-label="Pages">
             {pages.map((page) => {
-              const active = page === left || page === right;
+              const active = page.pageNumber === numbers.left || page.pageNumber === numbers.right;
               return (
                 <button
                   key={page.id}
@@ -218,7 +239,7 @@ export function Viewer({
                   }}
                   aria-label={`Go to page ${page.pageNumber}`}
                   aria-current={active ? "page" : undefined}
-                  onClick={() => go(spreadOf(page.pageNumber))}
+                  onClick={() => go(viewOfPage(page.pageNumber, mode))}
                   className={cn(
                     "h-[34px] w-[26px] shrink-0 rounded-[2px]",
                     active
