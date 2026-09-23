@@ -40,7 +40,23 @@ export function resetRateLimits() {
   lastSweep = 0;
 }
 
-/** The caller's IP, as far as the proxies in front of us report it. */
+/**
+ * The header that carries the caller's IP (CLIENT_IP_HEADER). Only a header the proxy in front
+ * of the app writes itself can be trusted: one the client can send (cf-connecting-ip with no
+ * Cloudflare in front, or the first X-Forwarded-For entry) lets anyone pick a new IP, and so a
+ * fresh rate-limit bucket, on every request. Behind Coolify's Traefik that is X-Forwarded-For
+ * (Traefik drops what clients send and writes the address it sees); behind Cloudflare it is
+ * cf-connecting-ip, as long as the origin only accepts Cloudflare's addresses.
+ */
+export function clientIpHeader() {
+  return (process.env.CLIENT_IP_HEADER || "x-forwarded-for").trim().toLowerCase();
+}
+
+/** The caller's IP, from the header the proxy in front of us writes (see clientIpHeader). */
 export function clientIp(headers: Headers) {
-  return headers.get("cf-connecting-ip") || headers.get("x-forwarded-for")?.split(",")[0]?.trim() || headers.get("x-real-ip") || "unknown";
+  const header = clientIpHeader();
+  const value = headers.get(header);
+  // Proxies append to X-Forwarded-For, so the last entry is the one the nearest proxy added.
+  const ip = header === "x-forwarded-for" ? value?.split(",").at(-1) : value;
+  return ip?.trim() || "unknown";
 }

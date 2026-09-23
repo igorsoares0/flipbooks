@@ -73,8 +73,8 @@ The e2e suite builds the app and starts its own server on port 3100, pointed at 
 - `src/lib/entitlements`: what each plan can do. Code checks capabilities (`canUseCanvasEditor`…), never plan names.
 - `src/editor`: the canvas editor (see [Editor](#editor)).
 - `src/components/flipbook/page-canvas.tsx`: renders any page at any size (editor, viewer, thumbnails).
-- `src/lib/storage`: the S3 client (presigned uploads and downloads, object keys). Files stay private; pages get short-lived signed URLs after the access check.
-- `worker/`: the PDF worker. It claims jobs from the `processing_jobs` table (`FOR UPDATE SKIP LOCKED`), renders pages and thumbnails, retries transient failures with backoff, and sweeps stuck jobs, abandoned uploads and image files that never made it into a library.
+- `src/lib/storage`: the S3 client (presigned uploads and downloads, object keys). Files stay private; pages get short-lived signed URLs after the access check. Browsers upload to `incoming/{key}`; once the server has checked the file, it copies that exact version (by ETag) to `{key}`, so an upload URL that is still valid can never replace a checked file.
+- `worker/`: the PDF worker. It claims jobs from the `processing_jobs` table (`FOR UPDATE SKIP LOCKED`), renders pages and thumbnails, retries transient failures with backoff, and sweeps stuck jobs, abandoned uploads, stale files under `incoming/` and image files that never made it into a library.
 - `prisma/`: schema, migrations, seed and demo content.
 
 ## Editor
@@ -87,7 +87,7 @@ The canvas editor renders pages with HTML, not Konva as the spec first suggested
 - `components/transform-layer.tsx`: the selection frame, handles and snap guides, drawn over the page.
 - `text/runs.ts`: converts between stored text runs and the editing HTML. Only text, italic and line breaks survive, so no HTML is ever stored.
 
-Pictures come from the user's library (`/dashboard/assets`). The browser uploads them straight to storage under `assets/{userId}/`. The server then checks the key's owner, the real file type from its first bytes, the size and the pixel dimensions. Autosave refuses any picture that isn't in the caller's own library.
+Pictures come from the user's library (`/dashboard/assets`). The browser uploads them straight to storage (to the incoming copy of a key under `assets/{userId}/`). The server then checks the key's owner, the real file type from its first bytes, the size and the pixel dimensions. Autosave refuses any picture that isn't in the caller's own library.
 
 Keyboard shortcuts:
 
@@ -207,6 +207,12 @@ otherwise, which is what Coolify needs to decide a deploy is live.
 **Keep the app at one container.** `src/lib/rate-limit.ts` holds its sliding windows in
 memory, so a second instance silently doubles every limit. The spec's Redis step (§5.5) is the
 upgrade; the worker has no such constraint.
+
+**Client IP.** Rate limits (the app's and Better Auth's) key on the header named in
+`CLIENT_IP_HEADER`, and only a header the proxy writes itself is safe there. Coolify's Traefik
+drops the `X-Forwarded-For` clients send and writes its own, so the default works. If
+Cloudflare proxies the domain, use `cf-connecting-ip` and firewall the origin to Cloudflare's
+addresses; otherwise anyone can send that header and pick a new IP on every request.
 
 **Database (Neon).** `DATABASE_URL` is Neon's **pooled** connection string, `DIRECT_URL` the
 **direct** one, which is what the migrate container uses.

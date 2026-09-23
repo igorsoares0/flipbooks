@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
-import { head, keys, putObject } from "@/lib/storage";
+import { head, keys, promoteUpload, putObject } from "@/lib/storage";
 import type { ImageElement, Page } from "@/lib/types";
 import { documentSchema } from "@/lib/validation";
 import * as assets from "./assets";
@@ -30,7 +30,7 @@ const png = (width: number, height: number) =>
 async function uploaded(userId: string, body: Buffer, contentType: assets.ImageType = "image/png") {
   const created = await assets.createAssetUpload(userId, await repo.getEntitlements(PRO), { size: body.length, contentType });
   if (!created.ok) throw new Error(created.error);
-  await putObject(created.key, body, contentType);
+  await putObject(keys.incoming(created.key), body, contentType);
   return created.key;
 }
 
@@ -122,6 +122,7 @@ describe("finishing an image upload", () => {
     const key = await uploaded(PRO, Buffer.from("<svg xmlns='http://www.w3.org/2000/svg'/>"));
     const result = await assets.registerAsset(PRO, await repo.getEntitlements(PRO), { key, filename: "sneaky.png" });
     expect(result).toEqual({ ok: false, error: "That file isn't a JPG, PNG or WebP image." });
+    expect(await head(keys.incoming(key))).toBeNull();
     expect(await head(key)).toBeNull();
     expect(await prisma.asset.count({ where: { key } })).toBe(0);
 
@@ -129,6 +130,27 @@ describe("finishing an image upload", () => {
     const jpeg = await sharp({ create: { width: 8, height: 8, channels: 3, background: "#000" } }).jpeg().toBuffer();
     const mismatched = await uploaded(PRO, jpeg, "image/png");
     expect((await assets.registerAsset(PRO, await repo.getEntitlements(PRO), { key: mismatched, filename: "a.png" })).ok).toBe(false);
+  });
+
+  it("serves the checked file, not whatever the upload URL writes afterwards", async () => {
+    const asset = await registered(PRO);
+    expect(await head(keys.incoming(asset.key))).toBeNull();
+    const checked = await head(asset.key);
+    expect(checked?.size).toBe(asset.size);
+
+    // The presigned URL is still valid for a few minutes: a second PUT lands in incoming/,
+    // never on the key readers are served.
+    await putObject(keys.incoming(asset.key), Buffer.alloc(asset.size * 4, 1), "image/png");
+    expect(await head(asset.key)).toEqual(checked);
+    expect(await assets.registerAsset(PRO, await repo.getEntitlements(PRO), { key: asset.key, filename: "again.png" })).toMatchObject({ ok: false });
+  });
+
+  it("refuses to move an upload that changed after it was checked", async () => {
+    const key = await uploaded(PRO, await png(10, 10));
+    const checked = await head(keys.incoming(key));
+    await putObject(keys.incoming(key), await png(20, 20), "image/png");
+    expect(await promoteUpload(key, checked!.etag)).toBe(false);
+    expect(await head(key)).toBeNull();
   });
 
   it("handles each upload once", async () => {

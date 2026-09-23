@@ -9,7 +9,7 @@ import { deleteObject, head, keys, listObjects, putObject, readRange } from "@/l
 import { documentSchema } from "@/lib/validation";
 import { A4_LANDSCAPE, A4_PORTRAIT, corruptPdf, makePdf } from "../tests/pdf-fixtures";
 import { describeFailure } from "./errors";
-import { claimNextJob, completeJob, failJob, removeAbandonedUploads, removeOrphanAssets, requeueStuckJobs } from "./jobs";
+import { claimNextJob, completeJob, failJob, removeAbandonedUploads, removeOrphanAssets, removeStaleIncoming, requeueStuckJobs } from "./jobs";
 import { renderPdfJob } from "./render-pdf";
 
 // The whole PDF pipeline against real Postgres and MinIO: upload → confirm → claim → render.
@@ -30,7 +30,7 @@ afterAll(() => prisma.$disconnect());
 /** Does what the browser does: create the row, PUT the bytes, confirm. */
 async function upload(userId: string, bytes: Buffer, filename = "summer_catalog-2026.pdf") {
   const { flipbookId, key } = await createPdfUpload(userId, { filename, size: bytes.length });
-  await putObject(key, bytes, "application/pdf");
+  await putObject(keys.incoming(key), bytes, "application/pdf");
   return { flipbookId, confirm: () => confirmPdfUpload(userId, flipbookId) };
 }
 
@@ -67,16 +67,30 @@ describe("upload checks", () => {
   it("rejects a stored file whose size differs from what was declared", async () => {
     const bytes = await makePdf();
     const { flipbookId, key } = await createPdfUpload(PRO, { filename: "a.pdf", size: bytes.length + 10 });
-    await putObject(key, bytes, "application/pdf");
+    await putObject(keys.incoming(key), bytes, "application/pdf");
     expect(await confirmPdfUpload(PRO, flipbookId)).toEqual({ ok: false, error: "the uploaded file does not match" });
     const row = await prisma.flipbook.findUniqueOrThrow({ where: { id: flipbookId } });
     expect(row).toMatchObject({ status: "FAILED", fileSize: null, originalPdfKey: null });
-    expect(await head(key)).toBeNull(); // the object is gone too
+    expect(await head(keys.incoming(key))).toBeNull(); // the object is gone too
   });
 
   it("rejects files that are not PDFs", async () => {
     const { confirm } = await upload(PRO, Buffer.from("<html>definitely not a pdf</html>"), "fake.pdf");
     expect(await confirm()).toEqual({ ok: false, error: "not a PDF file" });
+  });
+
+  it("processes the checked file, not whatever the upload URL writes afterwards", async () => {
+    const bytes = await makePdf();
+    const { flipbookId, confirm } = await upload(PRO, bytes);
+    expect(await confirm()).toEqual({ ok: true });
+    const original = keys.original(flipbookId);
+    expect((await head(original))?.size).toBe(bytes.length);
+    expect(await head(keys.incoming(original))).toBeNull();
+
+    // The presigned URL is still valid for a few minutes; a second PUT never reaches the original.
+    await putObject(keys.incoming(original), Buffer.alloc(bytes.length * 10, 1), "application/pdf");
+    expect((await head(original))?.size).toBe(bytes.length);
+    await processJobFor(flipbookId);
   });
 
   it("only lets the owner confirm, once", async () => {
@@ -214,6 +228,25 @@ describe("image housekeeping", () => {
     expect(await removeOrphanAssets(prisma, files, 0)).toBeGreaterThanOrEqual(1);
     expect(await head(orphan)).toBeNull();
     expect(await head(kept)).not.toBeNull();
+  });
+});
+
+describe("incoming housekeeping", () => {
+  it("removes uploads that were never confirmed, and nothing else", async () => {
+    const stale = keys.incoming(keys.asset(PRO, "c".repeat(32), "png"));
+    const kept = keys.asset(PRO, "d".repeat(32), "png");
+    await putObject(stale, Buffer.from("never confirmed"), "image/png");
+    await putObject(kept, Buffer.from("a checked one"), "image/png");
+
+    const files = { list: listObjects, remove: deleteObject };
+    // Fresh uploads may still be waiting for their confirmation.
+    await removeStaleIncoming(files);
+    expect(await head(stale)).not.toBeNull();
+
+    expect(await removeStaleIncoming(files, 0)).toBeGreaterThanOrEqual(1);
+    expect(await head(stale)).toBeNull();
+    expect(await head(kept)).not.toBeNull();
+    await deleteObject(kept);
   });
 });
 

@@ -8,7 +8,7 @@ import { flipbookLimitViolation } from "@/lib/entitlements/policy";
 import { checkUploadAllowed, confirmPdfUpload, createPdfUpload, retryPdfProcessing } from "@/lib/data/uploads";
 import { PDF_CONTENT_TYPE } from "@/lib/flipbook-rules";
 import { rateLimit, UPLOADS_PER_HOUR } from "@/lib/rate-limit";
-import { presignPut } from "@/lib/storage";
+import { presignUpload } from "@/lib/storage";
 import type { ActionResult } from "./flipbooks";
 
 // Actions are public HTTP endpoints: authenticate, validate, check the plan, then write.
@@ -35,7 +35,7 @@ export async function startPdfUpload(input: unknown): Promise<StartUploadResult>
 
   const { flipbookId, key } = await createPdfUpload(user.id, parsed.data);
   // The content type is fixed server-side and covered by the signature.
-  const uploadUrl = await presignPut(key, { contentType: PDF_CONTENT_TYPE });
+  const uploadUrl = await presignUpload(key, { contentType: PDF_CONTENT_TYPE });
   revalidatePath("/dashboard", "layout");
   return { ok: true, flipbookId, uploadUrl, contentType: PDF_CONTENT_TYPE };
 }

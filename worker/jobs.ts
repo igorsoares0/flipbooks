@@ -1,4 +1,5 @@
 import type { PrismaClient } from "../src/generated/prisma/client";
+import { keys } from "../src/lib/storage/s3";
 import { backoffMs, MAX_ATTEMPTS } from "./errors";
 
 // A small job queue on top of the processing_jobs table (spec §9: no Redis in the MVP).
@@ -75,9 +76,8 @@ export async function removeAbandonedUploads(
 }
 
 /**
- * Image files with no library row: uploads the browser never finished. They don't count
- * against anyone's storage, so they must not pile up. Presigned uploads expire after 15
- * minutes, so anything older than an hour is safe to remove.
+ * Image files with no library row: a check that failed halfway. They don't count against
+ * anyone's storage, so they must not pile up. Anything older than an hour is safe to remove.
  */
 export async function removeOrphanAssets(
   prisma: PrismaClient,
@@ -98,4 +98,20 @@ export async function removeOrphanAssets(
     }
   }
   return removed;
+}
+
+/**
+ * Browser uploads still under incoming/: never confirmed, or written again through a URL that
+ * was still valid after the server had checked and moved the file. Nothing reads them and
+ * they count against no one's storage. Upload URLs expire after 5 minutes and a confirmation
+ * follows right after the upload, so anything older than an hour is safe to remove.
+ */
+export async function removeStaleIncoming(
+  files: { list: (prefix: string) => Promise<{ key: string; lastModified: Date }[]>; remove: (key: string) => Promise<unknown> },
+  olderThanMs = 60 * 60_000,
+) {
+  const cutoff = Date.now() - olderThanMs;
+  const stale = (await files.list(keys.incomingPrefix)).filter((file) => file.lastModified.getTime() < cutoff);
+  for (const file of stale) await files.remove(file.key).catch(() => undefined);
+  return stale.length;
 }

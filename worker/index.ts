@@ -9,6 +9,7 @@ import {
   failJob,
   removeAbandonedUploads,
   removeOrphanAssets,
+  removeStaleIncoming,
   requeueStuckJobs,
   type ClaimedJob,
 } from "./jobs";
@@ -80,7 +81,8 @@ async function slot(n: number) {
   }
 }
 
-// Listing every image in the bucket is costly, so orphaned images are checked hourly.
+// Listing every image in the bucket is costly, so orphaned images (and stale incoming
+// uploads) are checked hourly.
 const ASSET_SWEEP_MS = 60 * 60_000;
 let lastAssetSweep = 0;
 
@@ -89,11 +91,14 @@ async function sweep() {
     const requeued = await requeueStuckJobs(prisma);
     const abandoned = await removeAbandonedUploads(prisma, (id) => deletePrefix(keys.prefix(id)));
     let orphanImages = 0;
+    let staleUploads = 0;
     if (Date.now() - lastAssetSweep >= ASSET_SWEEP_MS) {
       lastAssetSweep = Date.now();
-      orphanImages = await removeOrphanAssets(prisma, { list: listObjects, remove: deleteObject });
+      const files = { list: listObjects, remove: deleteObject };
+      orphanImages = await removeOrphanAssets(prisma, files);
+      staleUploads = await removeStaleIncoming(files);
     }
-    if (requeued || abandoned || orphanImages) log("sweep", { requeued, abandoned, orphanImages });
+    if (requeued || abandoned || orphanImages || staleUploads) log("sweep", { requeued, abandoned, orphanImages, staleUploads });
   } catch (error) {
     log("sweep.error", { error: String(error) });
   }

@@ -3,12 +3,13 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { prisma } from "@/lib/db";
-import { deleteObject, head, keys, presignGet, readRange } from "@/lib/storage";
+import { deleteObject, head, isObjectChanged, keys, presignGet, promoteUpload, readRange } from "@/lib/storage";
 import type { Entitlements } from "@/lib/types";
 import { getUsage } from "./flipbooks";
 
-// The image library (spec §10): pictures are uploaded straight to storage under
-// assets/{userId}/, then checked here before they become usable in the editor.
+// The image library (spec §10): pictures are uploaded straight to storage (to the incoming
+// copy of their assets/{userId}/ key), then checked and moved into place here before they
+// become usable in the editor.
 
 export const IMAGE_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" } as const;
 export type ImageType = keyof typeof IMAGE_TYPES;
@@ -18,6 +19,7 @@ const MAX_DIMENSION = 12_000;
 // Enough to reach the size header of any JPEG, even behind a large EXIF block.
 const HEADER_BYTES = 512 * 1024;
 const URL_TTL_SECONDS = 60 * 60;
+const UPLOAD_CHANGED = "The upload changed while it was being checked. Try again.";
 
 export type AssetRecord = {
   id: string;
@@ -93,18 +95,26 @@ export async function registerAsset(
   if (!key.startsWith(keys.assetPrefix(userId)) || !KEY_PATTERN.test(key)) return { ok: false, error: "This upload isn't yours." };
   if (await prisma.asset.findUnique({ where: { key }, select: { id: true } })) return { ok: false, error: "This upload was already handled." };
 
+  // The browser uploaded to the incoming key; everything below checks that one version (ETag).
+  const upload = keys.incoming(key);
   const reject = async (error: string): Promise<Result<never>> => {
-    await deleteObject(key).catch(() => undefined);
+    await deleteObject(upload).catch(() => undefined);
     return { ok: false, error };
   };
 
-  const stored = await head(key);
+  const stored = await head(upload);
   if (!stored) return { ok: false, error: "The upload did not reach storage." };
   if (stored.size === 0 || stored.size > MAX_ASSET_BYTES) return reject("Images can be up to 15 MB.");
   const usage = await getUsage(userId);
   if (usage.storageBytes + stored.size > entitlements.maxStorageBytes) return reject("This upload would go over your storage limit.");
 
-  const bytes = await readRange(key, 0, Math.min(stored.size, HEADER_BYTES) - 1);
+  let bytes: Buffer;
+  try {
+    bytes = await readRange(upload, 0, Math.min(stored.size, HEADER_BYTES) - 1, { ifMatch: stored.etag ?? undefined });
+  } catch (error) {
+    if (isObjectChanged(error)) return reject(UPLOAD_CHANGED);
+    throw error;
+  }
   const type = sniffImageType(bytes);
   if (!type || IMAGE_TYPES[type] !== key.split(".").pop()) return reject("That file isn't a JPG, PNG or WebP image.");
 
@@ -121,6 +131,9 @@ export async function registerAsset(
     return reject("We couldn't read that image.");
   }
   if (width > MAX_DIMENSION || height > MAX_DIMENSION) return reject(`Images can be up to ${MAX_DIMENSION.toLocaleString("en-US")} pixels wide or tall.`);
+  // The upload URL still works until it expires, so readers only ever get the copy made
+  // here, of exactly the bytes checked above.
+  if (!(await promoteUpload(key, stored.etag))) return reject(UPLOAD_CHANGED);
 
   const row = await prisma.asset.create({
     data: { userId, type: "IMAGE", key, filename: filename.trim().slice(0, 255) || "Image", mimeType: type, size: stored.size, width, height },

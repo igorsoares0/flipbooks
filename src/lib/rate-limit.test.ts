@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clientIp, rateLimit, resetRateLimits } from "./rate-limit";
 
 const window = { limit: 3, windowMs: 60_000 };
@@ -23,10 +23,25 @@ describe("rate limit", () => {
     expect(rateLimit("events:a", window, now).ok).toBe(true);
   });
 
-  it("reads the client IP from the usual proxy headers", () => {
-    expect(clientIp(new Headers({ "cf-connecting-ip": "203.0.113.1", "x-forwarded-for": "198.51.100.9" }))).toBe("203.0.113.1");
-    expect(clientIp(new Headers({ "x-forwarded-for": "198.51.100.9, 10.0.0.1" }))).toBe("198.51.100.9");
-    expect(clientIp(new Headers({ "x-real-ip": "198.51.100.3" }))).toBe("198.51.100.3");
-    expect(clientIp(new Headers())).toBe("unknown");
+  describe("client IP", () => {
+    afterEach(() => vi.unstubAllEnvs());
+
+    it("reads the address the nearest proxy added to X-Forwarded-For", () => {
+      expect(clientIp(new Headers({ "x-forwarded-for": "198.51.100.9" }))).toBe("198.51.100.9");
+      // Earlier entries come from the client, so they can't pick their own bucket.
+      expect(clientIp(new Headers({ "x-forwarded-for": "203.0.113.77, 198.51.100.9" }))).toBe("198.51.100.9");
+      expect(clientIp(new Headers())).toBe("unknown");
+    });
+
+    it("ignores headers the client can send itself", () => {
+      const headers = new Headers({ "cf-connecting-ip": "203.0.113.1", "x-real-ip": "203.0.113.2", "x-forwarded-for": "198.51.100.9" });
+      expect(clientIp(headers)).toBe("198.51.100.9");
+    });
+
+    it("uses the header set in CLIENT_IP_HEADER", () => {
+      vi.stubEnv("CLIENT_IP_HEADER", "CF-Connecting-IP");
+      expect(clientIp(new Headers({ "cf-connecting-ip": "203.0.113.1", "x-forwarded-for": "198.51.100.9" }))).toBe("203.0.113.1");
+      expect(clientIp(new Headers({ "x-forwarded-for": "198.51.100.9" }))).toBe("unknown");
+    });
   });
 });

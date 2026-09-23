@@ -13,4 +13,13 @@ describe("safeNext", () => {
     expect(safeNext(undefined)).toBe("/dashboard");
     expect(safeNext(["/a", "/b"])).toBe("/dashboard");
   });
+
+  it("blocks paths a browser reads as another host", () => {
+    // Browsers strip tabs and newlines, so these become "//evil.example".
+    expect(safeNext("/\t/evil.example")).toBe("/dashboard");
+    expect(safeNext("/\n/evil.example")).toBe("/dashboard");
+    expect(safeNext("/\r\n/evil.example")).toBe("/dashboard");
+    expect(safeNext("/\t\\evil.example")).toBe("/dashboard");
+    expect(safeNext("/%09/evil.example")).toBe("/%09/evil.example");
+  });
 });

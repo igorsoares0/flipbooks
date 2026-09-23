@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth/session";
 import * as assets from "@/lib/data/assets";
 import { getEntitlements } from "@/lib/data/flipbooks";
 import { rateLimit, UPLOADS_PER_HOUR } from "@/lib/rate-limit";
-import { presignPut } from "@/lib/storage";
+import { presignUpload } from "@/lib/storage";
 import type { ActionResult } from "./flipbooks";
 
 // Image library actions. Actions are public HTTP endpoints: authenticate, validate,
@@ -32,7 +32,7 @@ export async function startAssetUpload(input: unknown): Promise<StartAssetUpload
   const created = await assets.createAssetUpload(user.id, await getEntitlements(user.id), parsed.data);
   if (!created.ok) return created;
   // The content type is fixed here and covered by the signature.
-  const uploadUrl = await presignPut(created.key, { contentType: parsed.data.contentType });
+  const uploadUrl = await presignUpload(created.key, { contentType: parsed.data.contentType });
   return { ok: true, key: created.key, uploadUrl, contentType: parsed.data.contentType };
 }
 

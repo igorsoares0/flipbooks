@@ -24,6 +24,9 @@ export const keys = {
   thumbnail: (flipbookId: string, pageNumber: number) => `flipbooks/${flipbookId}/thumbnails/${pad(pageNumber)}.webp`,
   assetPrefix: (userId: string) => `assets/${userId}/`,
   asset: (userId: string, assetId: string, ext: string) => `assets/${userId}/${assetId}.${ext}`,
+  /** Where the browser uploads a file bound for `key`, until the server has checked it. */
+  incoming: (key: string) => `incoming/${key}`,
+  incomingPrefix: "incoming/",
 };
 
 function pad(n: number) {
@@ -50,10 +53,16 @@ function storage() {
   return cached;
 }
 
-/** URL the browser PUTs the file to. The signature covers the content type. */
-export async function presignPut(key: string, { contentType, expiresIn = 15 * 60 }: { contentType: string; expiresIn?: number }) {
+/**
+ * URL the browser PUTs a file bound for `key` to. It writes to the incoming copy, never to
+ * `key` itself: the URL keeps working until it expires, so whatever it points at can be
+ * replaced after the server has checked it (see promoteUpload). The signature covers the
+ * content type. Storage checks the expiry when a request starts, so a short one still
+ * allows slow uploads.
+ */
+export async function presignUpload(key: string, { contentType, expiresIn = 5 * 60 }: { contentType: string; expiresIn?: number }) {
   const { client, bucket } = storage();
-  return getSignedUrl(client, new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }), { expiresIn });
+  return getSignedUrl(client, new PutObjectCommand({ Bucket: bucket, Key: keys.incoming(key), ContentType: contentType }), { expiresIn });
 }
 
 export async function presignGet(key: string, { expiresIn = 60 * 60, downloadName }: { expiresIn?: number; downloadName?: string } = {}) {
@@ -64,22 +73,48 @@ export async function presignGet(key: string, { expiresIn = 60 * 60, downloadNam
   });
 }
 
-/** Size and type of an object, or null when it doesn't exist. */
+/** Size, type and version (ETag) of an object, or null when it doesn't exist. */
 export async function head(key: string) {
   const { client, bucket } = storage();
   try {
     const result = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
-    return { size: result.ContentLength ?? 0, contentType: result.ContentType ?? null };
+    return { size: result.ContentLength ?? 0, contentType: result.ContentType ?? null, etag: result.ETag ?? null };
   } catch (error) {
     if (error instanceof NotFound || (error as { name?: string }).name === "NotFound") return null;
     throw error;
   }
 }
 
-export async function readRange(key: string, start: number, end: number) {
+/** Bytes `start`–`end` of an object; with `ifMatch`, only from that version (else it throws, see isObjectChanged). */
+export async function readRange(key: string, start: number, end: number, { ifMatch }: { ifMatch?: string } = {}) {
   const { client, bucket } = storage();
-  const result = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key, Range: `bytes=${start}-${end}` }));
+  const result = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key, Range: `bytes=${start}-${end}`, IfMatch: ifMatch }));
   return Buffer.from(await result.Body!.transformToByteArray());
+}
+
+/** Whether a storage error means the object is gone, or is no longer the version a condition named. */
+export function isObjectChanged(error: unknown) {
+  const { name, $metadata } = error as { name?: string; $metadata?: { httpStatusCode?: number } };
+  return name === "PreconditionFailed" || name === "NoSuchKey" || name === "NotFound" || $metadata?.httpStatusCode === 412;
+}
+
+/**
+ * Moves a checked upload from its incoming key to `key`, but only if it is still the version
+ * that was checked (`etag`). Returns false when it changed or vanished in between.
+ */
+export async function promoteUpload(key: string, etag: string | null) {
+  if (!etag) return false;
+  const { client, bucket } = storage();
+  const from = keys.incoming(key);
+  try {
+    await client.send(new CopyObjectCommand({ Bucket: bucket, Key: key, CopySource: `${bucket}/${encodeURI(from)}`, CopySourceIfMatch: etag }));
+  } catch (error) {
+    if (isObjectChanged(error)) return false;
+    throw error;
+  }
+  // Best effort: the worker sweeps incoming files that stay behind.
+  await deleteObject(from).catch(() => undefined);
+  return true;
 }
 
 /** The whole object in memory. Only for small files (thumbnails, headers). */

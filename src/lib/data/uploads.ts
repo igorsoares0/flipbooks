@@ -2,14 +2,15 @@ import "server-only";
 
 import { prisma } from "@/lib/db";
 import { DEFAULT_SETTINGS, titleFromFilename } from "@/lib/flipbook-rules";
-import { deletePrefix, head, keys, readRange } from "@/lib/storage";
+import { deleteObject, deletePrefix, head, isObjectChanged, keys, promoteUpload, readRange } from "@/lib/storage";
 import type { Entitlements } from "@/lib/types";
 import { uniqueSlug } from "./flipbook-mutations";
 import { getUsage } from "./flipbooks";
 
-// PDF uploads: the browser PUTs straight to storage with a presigned URL; the server
-// creates the row first and checks the stored object afterwards (R2 does not enforce
-// Content-Length on presigned PUTs, so size and type are verified here).
+// PDF uploads: the browser PUTs straight to storage with a presigned URL (to the incoming
+// key); the server creates the row first and checks the stored object afterwards (R2 does
+// not enforce Content-Length on presigned PUTs, so size and type are verified here), then
+// copies it to the original's key, which only the server writes.
 
 export const RENDER_PDF = "RENDER_PDF";
 
@@ -50,6 +51,8 @@ export async function createPdfUpload(userId: string, { filename, size }: { file
   return { flipbookId: flipbook.id, key };
 }
 
+const UPLOAD_CHANGED = "the upload changed while it was being checked";
+
 /** A rejected upload: the object is deleted, so it stops counting against storage. */
 async function fail(flipbookId: string, error: string): Promise<UploadCheck> {
   await prisma.flipbook.update({
@@ -57,6 +60,7 @@ async function fail(flipbookId: string, error: string): Promise<UploadCheck> {
     data: { status: "FAILED", error, fileSize: null, originalPdfKey: null },
   });
   await deletePrefix(keys.prefix(flipbookId)).catch(() => undefined);
+  await deleteObject(keys.incoming(keys.original(flipbookId))).catch(() => undefined);
   return { ok: false, error };
 }
 
@@ -69,13 +73,24 @@ export async function confirmPdfUpload(userId: string, flipbookId: string): Prom
   if (!flipbook || flipbook.type !== "PDF") return { ok: false, error: "This upload no longer exists." };
   if (flipbook.status !== "UPLOADING" || !flipbook.originalPdfKey) return { ok: false, error: "This upload was already handled." };
 
-  const stored = await head(flipbook.originalPdfKey);
+  // The browser uploaded to the incoming key; everything below checks that one version (ETag).
+  const upload = keys.incoming(flipbook.originalPdfKey);
+  const stored = await head(upload);
   if (!stored) return fail(flipbookId, "the upload did not reach storage");
   if (stored.size !== flipbook.fileSize) return fail(flipbookId, "the uploaded file does not match");
 
-  const magic = await readRange(flipbook.originalPdfKey, 0, 1023);
+  let magic: Buffer;
+  try {
+    magic = await readRange(upload, 0, 1023, { ifMatch: stored.etag ?? undefined });
+  } catch (error) {
+    if (isObjectChanged(error)) return fail(flipbookId, UPLOAD_CHANGED);
+    throw error;
+  }
   // The header may follow a few junk bytes; readers accept it within the first 1 KB.
   if (!magic.includes(Buffer.from("%PDF-"))) return fail(flipbookId, "not a PDF file");
+  // The upload URL still works until it expires, so the worker only ever reads the copy
+  // made here, of exactly the bytes checked above.
+  if (!(await promoteUpload(flipbook.originalPdfKey, stored.etag))) return fail(flipbookId, UPLOAD_CHANGED);
 
   await prisma.$transaction([
     prisma.flipbook.update({ where: { id: flipbookId }, data: { status: "PROCESSING", error: null } }),

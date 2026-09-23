@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { changeEmailConfirmation, deleteAccountEmail, resetPasswordEmail, verifyEmail, welcomeEmail } from "@/lib/email/templates";
 import { purgeAccount } from "@/lib/data/account";
+import { clientIpHeader } from "@/lib/rate-limit";
 import { siteUrl } from "@/lib/site";
 
 const google =
@@ -65,6 +66,8 @@ export const auth = betterAuth({
   },
   // AUTH_RATE_LIMIT=off lets the e2e suite sign in from many parallel workers.
   rateLimit: process.env.AUTH_RATE_LIMIT === "off" ? { enabled: false } : undefined,
+  // The same trusted header as the app's own limits (src/lib/rate-limit.ts).
+  advanced: { ipAddress: { ipAddressHeaders: [clientIpHeader()] } },
   plugins: [nextCookies()],
 });
 
