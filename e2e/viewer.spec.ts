@@ -60,20 +60,14 @@ test.describe("public viewer", () => {
 test.describe("page turn", () => {
   const counter = (page: import("@playwright/test").Page) => page.getByText(/^\d+(–\d+)? \/ 64$/);
 
-  test("the sheet turns over the next spread before the page lands", async ({ page }) => {
-    await page.goto("/f/summer-catalog?page=4");
-    await page.getByRole("button", { name: "Next pages" }).click();
-    // The leaf is on screen while it rotates, and gone once the spread has landed.
-    await expect(page.getByTestId("turning-leaf")).toBeVisible();
-    await expect(counter(page)).toHaveText("6–7 / 64");
-    await expect(page.getByTestId("turning-leaf")).toHaveCount(0);
-  });
-
-  test("the spread being left stays put until the sheet lifts", async ({ page }) => {
-    await page.goto("/f/summer-catalog?page=4");
-    // Record what the book shows every frame: the next spread must not flash into place
-    // before the leaf is in the air.
-    await page.evaluate(() => {
+  /**
+   * Records what the book shows on every animation frame. A turn lasts about 600ms, so
+   * looking for the folded sheet with an assertion is a race the test loses on a loaded
+   * machine; replaying the frames afterwards sees the whole turn instead of one moment.
+   * Each frame reads "leaf|flat" plus the page numbers on screen.
+   */
+  const recordFrames = (page: import("@playwright/test").Page) =>
+    page.evaluate(() => {
       const frames: string[] = [];
       Object.assign(window, { __frames: frames });
       const tick = () => {
@@ -87,10 +81,32 @@ test.describe("page turn", () => {
       requestAnimationFrame(tick);
     });
 
+  const framesOf = (page: import("@playwright/test").Page) =>
+    page.evaluate(() => (window as unknown as { __frames: string[] }).__frames);
+
+  test("the sheet folds over the next spread before the page lands", async ({ page }) => {
+    await page.goto("/f/summer-catalog?page=4");
+    await recordFrames(page);
+
     await page.getByRole("button", { name: "Next pages" }).click();
     await expect(counter(page)).toHaveText("6–7 / 64");
 
-    const frames = await page.evaluate(() => (window as unknown as { __frames: string[] }).__frames);
+    // The sheet was in the air for part of the turn, and is gone now the spread has landed.
+    const frames = await framesOf(page);
+    expect(frames.filter((frame) => frame.startsWith("leaf")).length).toBeGreaterThan(0);
+    expect(frames.at(-1)).toMatch(/^flat/);
+    await expect(page.getByTestId("turning-leaf")).toHaveCount(0);
+  });
+
+  test("the spread being left stays put until the sheet lifts", async ({ page }) => {
+    await page.goto("/f/summer-catalog?page=4");
+    // The next spread must not flash into place before the sheet is in the air.
+    await recordFrames(page);
+
+    await page.getByRole("button", { name: "Next pages" }).click();
+    await expect(counter(page)).toHaveText("6–7 / 64");
+
+    const frames = await framesOf(page);
     const lift = frames.findIndex((frame) => frame.startsWith("leaf"));
     expect(lift).toBeGreaterThan(-1);
     expect(frames.slice(0, lift).filter((frame) => /0[67]/.test(frame))).toEqual([]);

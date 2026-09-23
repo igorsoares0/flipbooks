@@ -169,20 +169,67 @@ The public viewer and embeds send reader events to `/api/analytics/events`: a vi
 
 ## Deploying
 
-**Database (Neon).** Set `DATABASE_URL` to Neon's **pooled** connection string and `DIRECT_URL` to the **direct** one (used by migrations). Run `npm run db:deploy` on release.
+Two containers from this repository: the app (`Dockerfile`) and the PDF worker
+(`worker/Dockerfile`). `.env.production.example` lists every variable with its production
+shape. Build the images on the server — the dev machine runs WSL on a few GB of RAM and
+struggles with them.
 
-**App.** Set `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` to the public origin, plus `RESEND_API_KEY` and `EMAIL_FROM`.
+**Build-time vs run-time.** `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_PADDLE_ENV` and
+`NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` are compiled into the browser bundle by `next build`, so
+they are **build arguments**. Setting them at run time does nothing, and the app then ships
+share links and a checkout pointing at the wrong host without any error.
+
+```bash
+docker build -t flipbook-app \
+  --build-arg NEXT_PUBLIC_APP_URL=https://flipbook.co \
+  --build-arg NEXT_PUBLIC_PADDLE_ENV=production \
+  --build-arg NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=live_xxx .
+docker build -f worker/Dockerfile -t flipbook-worker .
+```
+
+**Migrations.** The app image does not apply them; a restart should never change the schema.
+Run them yourself before deploying a build that adds one:
+
+```bash
+docker build --target migrate -t flipbook-migrate .
+docker run --rm --env-file .env.production flipbook-migrate
+```
+
+(The `migrate` stage keeps the full `node_modules`: the Prisma CLI loads `prisma.config.ts`
+through `c12`, whose loader is a hoisted dependency, so the CLI cannot be copied out of
+`node_modules` piecemeal.)
+
+**Coolify.** Two applications pointing at this repository, one per Dockerfile. Only the app
+publishes a port (3000); the worker exposes nothing and is scaled by container count. Give the
+app a health check on `/api/health` — it answers 200 once Postgres is reachable and 503
+otherwise, which is what Coolify needs to decide a deploy is live.
+
+**Keep the app at one container.** `src/lib/rate-limit.ts` holds its sliding windows in
+memory, so a second instance silently doubles every limit. The spec's Redis step (§5.5) is the
+upgrade; the worker has no such constraint.
+
+**Database (Neon).** `DATABASE_URL` is Neon's **pooled** connection string, `DIRECT_URL` the
+**direct** one, which is what the migrate container uses.
+
+**App.** Set `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` to the public origin, plus
+`RESEND_API_KEY` and `EMAIL_FROM`. Without a Resend key, mail is appended to a file and
+nothing warns you.
 
 **Storage (Cloudflare R2).**
 1. Create a bucket, and an R2 API token with read and write access to it.
 2. Set `S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com`, `S3_REGION=auto`, `S3_FORCE_PATH_STYLE=false`, `S3_BUCKET`, `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY`, for both the app and the worker.
-3. Add a CORS rule to the bucket so browsers can upload: allow `PUT` and `GET` from your app origin, with the `Content-Type` header.
+3. Add a CORS rule to the bucket so browsers can upload: allow `PUT` and `GET` from your app origin, with the `Content-Type` header. Uploads go straight from the browser to storage, so without this every upload fails while the app itself looks healthy.
 
-**Worker.** Build and run the container with the same environment as the app:
+**Worker.** Same environment as the app:
 
 ```bash
-docker build -f worker/Dockerfile -t flipbook-worker .
 docker run --env-file .env.production --memory=1g flipbook-worker
 ```
 
-It needs `DATABASE_URL`, the `S3_*` variables, `BETTER_AUTH_URL` (for links in emails) and the email settings. `WORKER_CONCURRENCY` sets how many PDFs one container renders at once. To scale, run more containers; they never pick the same job.
+It needs `DATABASE_URL`, the `S3_*` variables, `BETTER_AUTH_URL` (for links in emails) and the
+email settings. `WORKER_CONCURRENCY` sets how many PDFs one container renders at once. To
+scale, run more containers; they never pick the same job.
+
+**Billing (Paddle).** A production account is reviewed by Paddle, and they read `/terms` and
+`/privacy` — fill in `src/components/marketing/legal-page.tsx` first. Point a notification
+destination at `<app>/api/paddle/webhook` and use the production price ids.
