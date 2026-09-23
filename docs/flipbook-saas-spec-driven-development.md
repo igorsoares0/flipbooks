@@ -424,6 +424,8 @@ Estrutura recomendada:
 - o banco armazena apenas keys/metadados;
 - arquivos órfãos devem ser limpos periodicamente.
 
+> Decisão (fase 7): o navegador envia os arquivos para `/incoming/{key}`, nunca direto para a key final. Depois de conferir tamanho e tipo, o servidor copia exatamente a versão conferida (pelo ETag) para `{key}`. A URL de upload continua válida por alguns minutos, e sem essa etapa daria para trocar um arquivo já verificado por outro, maior ou de outro tipo. O worker apaga os arquivos que ficam em `/incoming/`.
+
 ---
 
 # 11. Modelo de Documento Canvas
@@ -1200,7 +1202,7 @@ ProcessingJob
 
 A implementação pode utilizar Server Actions e Route Handlers conforme o caso.
 
-> Implementação atual: as operações do app são Server Actions (`src/lib/actions`). Route Handlers existem só onde é preciso uma URL HTTP: auth (`/api/auth/*`) e download do PDF original (`/api/flipbooks/:id/download`). O webhook do Paddle e a coleta de analytics serão Route Handlers.
+> Implementação atual: as operações do app são Server Actions (`src/lib/actions`). Route Handlers existem só onde é preciso uma URL HTTP: auth (`/api/auth/*`), download do PDF original (`/api/flipbooks/:id/download`), webhook do Paddle (`/api/paddle/webhook`), coleta de analytics (`/api/analytics/events`) e health check (`/api/health`).
 
 Operações de referência:
 
@@ -1332,6 +1334,8 @@ Implementar:
 - proteção contra acesso a flipbooks privados.
 
 Nunca confiar apenas no frontend para autorização.
+
+> Implementação atual (fase 7): o rate limiting usa só o IP que o proxy da frente escreve (`CLIENT_IP_HEADER`), nunca um cabeçalho que o cliente possa mandar. Toda resposta leva cabeçalhos de segurança (CSP com `frame-ancestors`, `nosniff`, HSTS, `Referrer-Policy`); só `/embed/*` pode ser aberto em iframe de outro site. Destinos de redirecionamento pós-login precisam resolver para o próprio site.
 
 ---
 
