@@ -1,23 +1,37 @@
 import type { Metadata } from "next";
-import { Instrument_Sans, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import { Instrument_Sans, Instrument_Serif, JetBrains_Mono, Newsreader, Schibsted_Grotesk } from "next/font/google";
 import { siteUrl } from "@/lib/site";
 import "./globals.css";
 
-const instrumentSans = Instrument_Sans({
-  variable: "--font-instrument-sans",
+const schibsted = Schibsted_Grotesk({
+  variable: "--font-schibsted",
+  subsets: ["latin"],
+});
+
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  axes: ["opsz"],
+});
+
+// Typefaces flipbook pages are designed in (PageCanvas). They are content, not UI, so a
+// redesign of the app must not change them: existing pages would reflow.
+const pageSans = Instrument_Sans({
+  variable: "--font-page-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-instrument-serif",
+const pageSerif = Instrument_Serif({
+  variable: "--font-page-serif",
   subsets: ["latin"],
   weight: "400",
   style: ["normal", "italic"],
 });
 
-const jetBrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
+const pageMono = JetBrains_Mono({
+  variable: "--font-page-mono",
   subsets: ["latin"],
   weight: ["400", "500"],
 });
@@ -36,7 +50,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${instrumentSans.variable} ${instrumentSerif.variable} ${jetBrainsMono.variable} h-full antialiased`}
+      className={`${schibsted.variable} ${newsreader.variable} ${pageSans.variable} ${pageSerif.variable} ${pageMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">{children}</body>
     </html>

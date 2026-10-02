@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Project rules
 
-The product spec is `docs/flipbook-saas-spec-driven-development.md` (in Portuguese) and the design handoff is `docs/design_handoff_flipbook_saas/`. `README.md` covers setup, scripts, code layout and the editor.
+The product spec is `docs/flipbook-saas-spec-driven-development.md` (in Portuguese) and the design handoff is `docs/design_handoff_editorial_redesign/`. `README.md` covers setup, scripts, code layout and the editor.
 
 - **Don't commit.** The maintainer reviews and commits every change. Report what changed and stop.
 - **Language:** code, comments, UI copy, docs and commit messages are in English. The spec stays in Portuguese.

@@ -38,37 +38,43 @@ const titles = () => screen.queryAllByText(/Catalog|Guidelines|Report/).map((el)
 describe("FlipbookTable", () => {
   it("filters rows by type", async () => {
     const user = userEvent.setup();
-    render(<FlipbookTable title="Recent flipbooks" rows={rows} />);
+    render(<FlipbookTable title="Contents" rows={rows} />);
     expect(titles()).toHaveLength(3);
 
-    await user.click(screen.getByRole("button", { name: "Canvas" }));
+    await user.click(screen.getByRole("button", { name: "Canvas 1" }));
     expect(titles()).toEqual(["Brand Guidelines"]);
-    expect(screen.getByRole("button", { name: "Canvas" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Canvas 1" }).getAttribute("aria-pressed")).toBe("true");
 
-    await user.click(screen.getByRole("button", { name: "PDF" }));
+    await user.click(screen.getByRole("button", { name: "PDF 2" }));
     expect(titles()).toEqual(["Summer Catalog", "Annual Report"]);
 
-    await user.click(screen.getByRole("button", { name: "All" }));
+    await user.click(screen.getByRole("button", { name: "All 3" }));
     expect(titles()).toHaveLength(3);
   });
 
+  it("filters drafts", async () => {
+    const user = userEvent.setup();
+    render(<FlipbookTable title="Contents" rows={[...rows, row({ id: "fb_d", title: "Draft Catalog", status: "DRAFT" })]} />);
+    await user.click(screen.getByRole("button", { name: "Drafts 1" }));
+    expect(titles()).toEqual(["Draft Catalog"]);
+  });
+
   it("links to the editor and the public viewer", () => {
-    render(<FlipbookTable title="Recent flipbooks" rows={rows} />);
+    render(<FlipbookTable title="Contents" rows={rows} />);
     const edits = screen.getAllByRole("link", { name: "Edit" });
     expect(edits[0].getAttribute("href")).toBe("/dashboard/flipbooks/fb_a/editor");
     expect(screen.getByRole("link", { name: "Preview Summer Catalog" }).getAttribute("href")).toBe("/f/summer");
   });
 
   it("disables edit and preview while a book has no pages", () => {
-    render(<FlipbookTable title="Recent flipbooks" rows={rows} />);
+    render(<FlipbookTable title="Contents" rows={rows} />);
     expect(screen.getAllByRole("link", { name: "Edit" })).toHaveLength(2);
     expect(screen.queryByRole("link", { name: "Preview Annual Report" })).toBeNull();
-    const status = screen.getByText("Processing");
-    expect(status).toBeTruthy();
+    expect(screen.getAllByText("Rendering").length).toBeGreaterThan(0);
   });
 
   it("shows the first-run empty state", () => {
-    render(<FlipbookTable title="Recent flipbooks" rows={[]} />);
+    render(<FlipbookTable title="Contents" rows={[]} />);
     expect(screen.getByText("No flipbooks yet")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Create your first flipbook" }).getAttribute("href")).toBe("/dashboard/flipbooks/new");
   });
@@ -81,9 +87,9 @@ describe("FlipbookTable", () => {
 
   it("explains an empty filter", async () => {
     const user = userEvent.setup();
-    render(<FlipbookTable title="Recent flipbooks" rows={[rows[0]]} />);
-    await user.click(screen.getByRole("button", { name: "Canvas" }));
-    const table = screen.getByRole("heading", { name: "Recent flipbooks" }).closest("section")!;
+    render(<FlipbookTable title="Contents" rows={[rows[0]]} />);
+    await user.click(screen.getByRole("button", { name: "Canvas 0" }));
+    const table = screen.getByRole("heading", { name: "Contents" }).closest("section")!;
     expect(within(table).getByText("No canvas flipbooks yet.")).toBeTruthy();
   });
 });
@@ -91,7 +97,7 @@ describe("FlipbookTable", () => {
 describe("row menu", () => {
   it("duplicates from the menu and closes it", async () => {
     const user = userEvent.setup();
-    render(<FlipbookTable title="Recent flipbooks" rows={rows} />);
+    render(<FlipbookTable title="Contents" rows={rows} />);
     await user.click(screen.getByRole("button", { name: "More actions for Summer Catalog" }));
     const menu = screen.getByRole("menu");
     expect(within(menu).getByRole("menuitem", { name: "Settings" }).getAttribute("href")).toBe("/dashboard/flipbooks/fb_a/settings");
@@ -102,7 +108,7 @@ describe("row menu", () => {
 
   it("asks for confirmation before deleting", async () => {
     const user = userEvent.setup();
-    render(<FlipbookTable title="Recent flipbooks" rows={rows} />);
+    render(<FlipbookTable title="Contents" rows={rows} />);
     await user.click(screen.getByRole("button", { name: "More actions for Brand Guidelines" }));
     await user.click(screen.getByRole("menuitem", { name: "Delete" }));
     expect(deleteFlipbookAction).not.toHaveBeenCalled();
@@ -112,7 +118,7 @@ describe("row menu", () => {
 
   it("closes on Escape", async () => {
     const user = userEvent.setup();
-    render(<FlipbookTable title="Recent flipbooks" rows={rows} />);
+    render(<FlipbookTable title="Contents" rows={rows} />);
     await user.click(screen.getByRole("button", { name: "More actions for Summer Catalog" }));
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("menu")).toBeNull();

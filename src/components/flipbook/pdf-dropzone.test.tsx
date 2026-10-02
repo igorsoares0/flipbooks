@@ -107,7 +107,7 @@ describe("PdfDropzone", () => {
 
   it("accepts a dropped file", async () => {
     render(<PdfDropzone maxBytes={100e6} maxPages={300} planName="Lifetime" />);
-    const zone = screen.getByText("From PDF").parentElement!;
+    const zone = screen.getByText("Drop a PDF anywhere on this box.").parentElement!;
     fireEvent.drop(zone, { dataTransfer: { files: [pdf()] } });
     await vi.waitFor(() => expect(startPdfUpload).toHaveBeenCalled());
   });

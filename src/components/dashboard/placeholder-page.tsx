@@ -14,15 +14,11 @@ export function PlaceholderPage({
   action?: ReactNode;
 }) {
   return (
-    <div className="mx-auto max-w-[1180px]">
-      <div className="rounded-2xl border border-line bg-surface px-6 py-[52px] text-center">
-        <div className="mx-auto mb-4 flex size-[46px] items-center justify-center rounded-xl bg-surface-alt">
-          <Icon className="size-5" strokeWidth={1.6} />
-        </div>
-        <h1 className="text-sm font-semibold">{title}</h1>
-        <p className="mx-auto mt-[7px] max-w-[340px] text-[12.5px] leading-[1.55] text-pretty text-muted">{body}</p>
-        {action && <div className="mt-4">{action}</div>}
-      </div>
+    <div className="flex max-w-[640px] flex-col items-start gap-4 pt-2">
+      <Icon className="size-6 opacity-60" strokeWidth={1.6} />
+      <h1 className="font-serif text-[40px] leading-[1.02] tracking-[-1.2px] md:text-[52px] md:tracking-[-1.6px]">{title}</h1>
+      <p className="max-w-[480px] text-base leading-[1.55] text-pretty text-ink-2">{body}</p>
+      {action && <div className="mt-2">{action}</div>}
     </div>
   );
 }

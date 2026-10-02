@@ -19,19 +19,19 @@ export function ToolRail() {
   const selectTool = useEditor((s) => s.selectTool);
 
   return (
-    <nav className="flex w-16 shrink-0 flex-col items-center gap-1 border-r border-line bg-surface py-2.5" aria-label="Tools">
+    <nav className="flex w-[72px] shrink-0 flex-col items-center gap-1 border-r border-line bg-surface pt-3" aria-label="Tools">
       {TOOLS.map(({ value, label, icon: Icon }) => (
         <button
           key={value}
           onClick={() => selectTool(value)}
           aria-pressed={tool === value}
           className={cn(
-            "flex h-[50px] w-12 flex-col items-center justify-center gap-1 rounded-[10px] text-ink",
-            tool === value ? "bg-surface-alt" : "hover:bg-surface-sunken",
+            "flex h-14 w-[60px] flex-col items-center justify-center gap-[5px] rounded-[10px] text-[11px]",
+            tool === value ? "bg-accent-tint font-semibold text-accent" : "text-ink hover:bg-hover",
           )}
         >
-          <Icon className="size-4" strokeWidth={1.5} />
-          <span className="text-[9.5px] font-medium">{label}</span>
+          <Icon className={cn("size-[18px]", tool !== value && "opacity-60")} strokeWidth={1.6} />
+          <span>{label}</span>
         </button>
       ))}
     </nav>

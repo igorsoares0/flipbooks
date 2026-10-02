@@ -8,9 +8,9 @@ import { deleteFlipbookAction, duplicateFlipbookAction } from "@/lib/actions/fli
 import { retryProcessingAction } from "@/lib/actions/uploads";
 import { cn } from "@/lib/utils";
 
-const item = "flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-surface-sunken hover:text-ink";
+const item = "flex h-9 w-full items-center rounded-md px-2.5 text-left text-[13.5px] text-ink hover:bg-hover hover:text-ink";
 
-/** The row's "···" menu. Not in the design handoff; styled with the card tokens. */
+/** The row's "···" menu, styled like the editor's page menu. */
 export function RowMenu({ id, title, published, canRetry = false }: { id: string; title: string; published: boolean; canRetry?: boolean }) {
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -40,7 +40,7 @@ export function RowMenu({ id, title, published, canRetry = false }: { id: string
   return (
     <div className="relative">
       <button
-        className={buttonClasses({ variant: "secondary", className: "h-7 w-[30px] rounded-[7px] p-0" })}
+        className={buttonClasses({ variant: "secondary", size: "icon", className: "size-[30px]" })}
         aria-label={`More actions for ${title}`}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -51,7 +51,7 @@ export function RowMenu({ id, title, published, canRetry = false }: { id: string
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={close} aria-hidden />
-          <div role="menu" aria-label={`Actions for ${title}`} className="absolute top-full right-0 z-40 mt-1.5 w-48 rounded-xl border border-line bg-surface p-1.5 shadow-canvas">
+          <div role="menu" aria-label={`Actions for ${title}`} className="absolute top-full right-0 z-40 mt-1.5 w-[200px] bg-surface p-1 shadow-menu">
             <Link role="menuitem" href={`/dashboard/flipbooks/${id}/settings`} className={item} onClick={close}>
               Settings
             </Link>
@@ -68,22 +68,22 @@ export function RowMenu({ id, title, published, canRetry = false }: { id: string
             <button role="menuitem" className={item} disabled={pending} onClick={() => run(() => duplicateFlipbookAction(id))}>
               {pending && !confirming ? "Duplicating…" : "Duplicate"}
             </button>
-            <div className="my-1 h-px bg-line-soft" />
+            <div className="my-1 h-px bg-line" />
             {confirming ? (
               <button
                 role="menuitem"
-                className={cn(item, "font-semibold text-danger hover:bg-danger-tint hover:text-danger")}
+                className={cn(item, "font-semibold text-danger hover:bg-danger-bg hover:text-danger")}
                 disabled={pending}
                 onClick={() => run(() => deleteFlipbookAction(id))}
               >
                 {pending ? "Deleting…" : "Confirm delete"}
               </button>
             ) : (
-              <button role="menuitem" className={cn(item, "text-danger hover:bg-danger-tint hover:text-danger")} onClick={() => setConfirming(true)}>
+              <button role="menuitem" className={cn(item, "text-danger hover:bg-danger-bg hover:text-danger")} onClick={() => setConfirming(true)}>
                 Delete
               </button>
             )}
-            {error && <p className="px-2.5 pt-1 pb-0.5 text-[11.5px] text-danger">{error}</p>}
+            {error && <p className="px-2.5 pt-1 pb-0.5 text-[12px] text-danger">{error}</p>}
           </div>
         </>
       )}

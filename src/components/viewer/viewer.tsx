@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, GalleryHorizontal, Maximize, ZoomIn } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FlipbookSettings, Page } from "@/lib/types";
@@ -17,7 +17,7 @@ function Folio({ n, side }: { n: number; side: "left" | "right" }) {
   return (
     <span
       className={cn(
-        "pointer-events-none absolute font-mono text-[10px] font-medium text-muted-2",
+        "pointer-events-none absolute text-[10px] text-muted tabular-nums",
         side === "left" ? "bottom-[14cqw] left-[12cqw]" : "right-3.5 bottom-3",
       )}
     >
@@ -110,8 +110,8 @@ export function Viewer({
     const url = new URL(window.location.href);
     url.searchParams.set("page", String(firstVisible));
     window.history.replaceState(null, "", url);
-    thumbRefs.current[firstVisible - 1]?.scrollIntoView({ block: "nearest", inline: "center" });
-  }, [firstVisible]);
+    thumbRefs.current[viewOfPage(firstVisible, mode)]?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [firstVisible, mode]);
 
   // Warm the cache with the neighbouring pages so a turn never shows a blank sheet.
   useEffect(() => {
@@ -126,16 +126,26 @@ export function Viewer({
 
   const dark = isDarkColor(settings.backgroundColor);
   const fg = dark ? "text-on-dark" : "text-ink";
-  const dim = dark ? "text-on-dark-dim-2" : "text-muted-2";
-  const border = dark ? "border-line-dark" : "border-line-strong";
-  const hoverBorder = dark ? "hover:border-on-dark" : "hover:border-ink";
-  const chromeButton = cn("h-8 rounded-lg border bg-transparent px-3 text-xs font-semibold", fg, border, hoverBorder);
+  const dim = dark ? "text-faint" : "text-muted";
+  const border = dark ? "border-line-dark" : "border-line-2";
+  const hoverBorder = dark ? "hover:border-on-dark-dim" : "hover:border-ink";
+  // Ghost pills; Share is the one solid control.
+  const chromeButton = cn(
+    "inline-flex h-[34px] items-center gap-2 rounded-full px-3.5 text-[13px] aria-pressed:font-semibold",
+    fg,
+    dark ? "hover:bg-white/[.08] aria-pressed:bg-white/[.12]" : "hover:bg-ink/[.05] aria-pressed:bg-ink/[.08]",
+  );
+  const solidButton = cn(
+    "ml-1.5 inline-flex h-[34px] items-center rounded-full px-4 text-[13px] font-semibold",
+    dark ? "bg-on-dark text-ink hover:bg-white" : "bg-ink text-white hover:bg-ink-2",
+  );
   const navButton = cn(
-    "flex size-[42px] shrink-0 items-center justify-center rounded-full border disabled:opacity-30",
+    "flex size-[46px] shrink-0 items-center justify-center rounded-full border disabled:opacity-30",
     border,
     fg,
-    dark ? "bg-white/[.04] enabled:hover:bg-white/[.12]" : "bg-ink/[.03] enabled:hover:bg-ink/[.08]",
+    dark ? "enabled:hover:bg-white/[.08]" : "enabled:hover:bg-ink/[.05]",
   );
+  const icon = "size-4 opacity-80";
 
   const share = async () => {
     await navigator.clipboard.writeText(`${publicUrl}?page=${firstVisible}`);
@@ -152,43 +162,45 @@ export function Viewer({
   return (
     <div className="flex h-dvh flex-col overflow-hidden" style={{ background: settings.backgroundColor }}>
       {variant === "public" && (
-        <header className={cn("flex h-14 shrink-0 items-center gap-3.5 px-5", fg)}>
+        <header className={cn("flex h-[60px] shrink-0 items-center gap-3.5 px-6 max-sm:px-3", fg)}>
           <Link
             href="/dashboard"
             aria-label="Back to dashboard"
-            className={cn("flex size-[30px] shrink-0 items-center justify-center rounded-lg border", border, hoverBorder, fg)}
+            className={cn("flex size-[34px] shrink-0 items-center justify-center rounded-full border", border, hoverBorder, fg)}
           >
-            <ChevronLeft className="size-3.5" strokeWidth={1.8} />
+            <ChevronLeft className="size-4" strokeWidth={1.6} />
           </Link>
-          {settings.showLogo && (
-            <span className="block size-[18px] shrink-0 rounded-[5px]" style={{ background: settings.accentColor }} />
-          )}
+          {settings.showLogo && <span className="block size-5 shrink-0 rounded-[5px]" style={{ background: settings.accentColor }} />}
           <div className="min-w-0">
-            <h1 className="truncate text-[13.5px] font-semibold">{flipbook.title}</h1>
-            <div className={cn("truncate font-mono text-[10.5px] font-medium", dim)}>{publicUrl.replace(/^https?:\/\//, "")}</div>
+            <h1 className="truncate font-serif text-[18px] leading-tight tracking-[-0.3px]">{flipbook.title}</h1>
+            <div className={cn("truncate text-[11.5px]", dim)}>{publicUrl.replace(/^https?:\/\//, "")}</div>
           </div>
-          <div className="ml-auto flex items-center gap-2 max-sm:hidden">
+          <div className="ml-auto flex items-center gap-1 max-sm:hidden">
             {settings.showThumbnails && (
               <button className={chromeButton} aria-pressed={showThumbs} onClick={() => setShowThumbs((v) => !v)}>
+                <GalleryHorizontal className={icon} strokeWidth={1.6} />
                 Thumbnails
               </button>
             )}
             <button className={chromeButton} aria-pressed={zoomed} onClick={() => setZoomed((v) => !v)}>
+              <ZoomIn className={icon} strokeWidth={1.6} />
               Zoom
             </button>
-            {settings.showShare && (
-              <button className={chromeButton} onClick={share}>
-                {copied ? "Link copied" : "Share"}
-              </button>
-            )}
             {downloadHref && (
-              <a href={downloadHref} className={cn(chromeButton, "inline-flex items-center")} download onClick={() => track("DOWNLOAD")}>
-                Download
+              <a href={downloadHref} className={chromeButton} aria-label="Download PDF" download onClick={() => track("DOWNLOAD")}>
+                <Download className={icon} strokeWidth={1.6} />
+                PDF
               </a>
             )}
             {settings.showFullscreen && (
               <button className={chromeButton} onClick={fullscreen}>
+                <Maximize className={icon} strokeWidth={1.6} />
                 Fullscreen
+              </button>
+            )}
+            {settings.showShare && (
+              <button className={solidButton} onClick={share}>
+                {copied ? "Link copied" : "Share"}
               </button>
             )}
           </div>
@@ -196,14 +208,14 @@ export function Viewer({
       )}
 
       {/* On a phone the arrows sit over the page, so one page can use the whole width. */}
-      <div className="relative flex min-h-0 flex-1 items-center justify-center gap-[22px] px-6 max-sm:gap-2 max-sm:px-2">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center gap-7 px-6 max-sm:gap-2 max-sm:px-2">
         <button
-          className={cn(navButton, single && "absolute top-1/2 left-2 z-10 -translate-y-1/2 backdrop-blur-sm")}
+          className={cn(navButton, single && cn("absolute top-1/2 left-2 z-10 -translate-y-1/2 backdrop-blur-sm", dark ? "bg-black/45" : "bg-white/75"))}
           aria-label="Previous pages"
           disabled={view === 0}
           onClick={() => go(view - 1)}
         >
-          <ChevronLeft className="size-4" strokeWidth={1.6} />
+          <ChevronLeft className="size-[18px]" strokeWidth={1.6} />
         </button>
 
         <PageTurn
@@ -217,56 +229,55 @@ export function Viewer({
         />
 
         <button
-          className={cn(navButton, single && "absolute top-1/2 right-2 z-10 -translate-y-1/2 backdrop-blur-sm")}
+          className={cn(navButton, single && cn("absolute top-1/2 right-2 z-10 -translate-y-1/2 backdrop-blur-sm", dark ? "bg-black/45" : "bg-white/75"))}
           aria-label="Next pages"
           disabled={view === maxView}
           onClick={() => go(view + 1)}
         >
-          <ChevronRight className="size-4" strokeWidth={1.6} />
+          <ChevronRight className="size-[18px]" strokeWidth={1.6} />
         </button>
       </div>
 
-      <div className={cn("flex shrink-0 items-center justify-center gap-4 px-6", variant === "public" ? "h-24" : "h-16")}>
+      <div className={cn("flex shrink-0 items-center justify-center gap-6 px-6", fg, variant === "public" ? "h-[84px]" : "h-16")}>
+        {/* Progress strip: one tick per view, the current one taller and light. */}
         {variant === "public" && showThumbs && (
-          <div className="flex min-w-0 gap-1.5 overflow-x-auto p-1.5 max-sm:hidden" aria-label="Pages">
-            {pages.map((page) => {
-              const active = page.pageNumber === numbers.left || page.pageNumber === numbers.right;
+          <div className="flex min-w-0 items-center gap-[3px] overflow-x-auto py-2 max-sm:hidden" aria-label="Pages">
+            {Array.from({ length: maxView + 1 }, (_, v) => {
+              const active = v === shown;
+              const { left, right } = viewPages(v, pageCount, mode);
+              const first = left ?? right ?? 1;
               return (
                 <button
-                  key={page.id}
+                  key={v}
                   ref={(el) => {
-                    thumbRefs.current[page.pageNumber - 1] = el;
+                    thumbRefs.current[v] = el;
                   }}
-                  aria-label={`Go to page ${page.pageNumber}`}
+                  aria-label={`Go to page ${first}`}
                   aria-current={active ? "page" : undefined}
-                  onClick={() => go(viewOfPage(page.pageNumber, mode))}
+                  onClick={() => go(v)}
                   className={cn(
-                    "h-[34px] w-[26px] shrink-0 rounded-[2px]",
+                    "w-1.5 shrink-0 rounded-[1px]",
+                    active ? "h-[22px]" : "h-3.5",
                     active
                       ? dark ? "bg-on-dark" : "bg-ink"
-                      : dark ? "bg-[rgba(246,244,239,.24)] hover:bg-[rgba(246,244,239,.4)]" : "bg-ink/15 hover:bg-ink/25",
+                      : v < shown
+                        ? dark ? "bg-[#6A6A6E] hover:bg-on-dark-dim" : "bg-faint hover:bg-muted"
+                        : dark ? "bg-line-dark hover:bg-[#6A6A6E]" : "bg-line-2 hover:bg-faint",
                   )}
                 />
               );
             })}
           </div>
         )}
-        <div
-          className={cn(
-            "flex shrink-0 items-center gap-2.5 rounded-[22px] border px-3.5 py-[7px] whitespace-nowrap",
-            border,
-            fg,
-            dark ? "bg-white/[.06]" : "bg-white/60",
-          )}
-        >
-          <span className="font-mono text-xs font-medium" aria-live="polite">
-            {counter} / {pageCount}
+        <div className="flex shrink-0 items-center gap-3 text-[13px] whitespace-nowrap">
+          <span className="tabular-nums" aria-live="polite">
+            <b className="font-semibold">{counter}</b> <span className={dim}>of {pageCount}</span>
           </span>
           {settings.showBranding && (
             <>
-              <span className={cn("h-3.5 w-px", dark ? "bg-line-dark" : "bg-line-strong")} />
-              <Link href="/" target={variant === "embed" ? "_blank" : undefined} className={cn("text-[11.5px] hover:underline", dim)}>
-                Powered by Flipbook
+              <span className={cn("h-3.5 w-px", dark ? "bg-line-dark" : "bg-line-2")} />
+              <Link href="/" target={variant === "embed" ? "_blank" : undefined} className={cn("hover:underline", dim)}>
+                Made with <span className={cn("font-serif italic", fg)}>Flipbook</span>
               </Link>
             </>
           )}

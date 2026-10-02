@@ -3,7 +3,7 @@
 A SaaS for turning PDFs into flipbooks, or designing them from scratch, then publishing, embedding and measuring them.
 
 - Product spec: [`docs/flipbook-saas-spec-driven-development.md`](docs/flipbook-saas-spec-driven-development.md)
-- Design handoff: [`docs/design_handoff_flipbook_saas/`](docs/design_handoff_flipbook_saas/README.md)
+- Design handoff: [`docs/design_handoff_editorial_redesign/`](docs/design_handoff_editorial_redesign/README.md)
 
 Stack: Next.js 16 (App Router) · React 19 · Tailwind CSS 4 · Better Auth · Prisma 7 on Postgres (Neon in production) · S3-compatible storage (MinIO locally, Cloudflare R2 in production) · a PDF worker (pdf.js + sharp) · Zustand · Resend.
 
@@ -86,6 +86,8 @@ The canvas editor renders pages with HTML, not Konva as the spec first suggested
 - `geometry.ts`: pure resize, rotate and snap math, in page units and independent of zoom.
 - `components/transform-layer.tsx`: the selection frame, handles and snap guides, drawn over the page.
 - `text/runs.ts`: converts between stored text runs and the editing HTML. Only text, italic and line breaks survive, so no HTML is ever stored.
+
+Page text uses its own typefaces (Instrument Sans, Instrument Serif, JetBrains Mono, loaded as `--font-page-*` in `src/app/layout.tsx`), separate from the app's UI fonts (Schibsted Grotesk and Newsreader). A redesign of the app never reflows pages people have already made.
 
 Pictures come from the user's library (`/dashboard/assets`). The browser uploads them straight to storage (to the incoming copy of a key under `assets/{userId}/`). The server then checks the key's owner, the real file type from its first bytes, the size and the pixel dimensions. Autosave refuses any picture that isn't in the caller's own library.
 

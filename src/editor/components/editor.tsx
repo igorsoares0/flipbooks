@@ -1,6 +1,8 @@
 "use client";
 
+import { CloudOff } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { saveDocumentAction } from "@/lib/actions/flipbooks";
 import type { FlipbookType, Page } from "@/lib/types";
 import { EditorStoreProvider, useEditor, useEditorStore } from "../state/editor-context";
@@ -66,11 +68,30 @@ function useUnsavedChangesWarning() {
   }, [dirty]);
 }
 
+/** Raised when autosave fails; the next edit or "Retry now" tries again. */
+function SaveFailedBanner() {
+  const failed = useEditor((s) => s.saveStatus === "error");
+  const saveError = useEditor((s) => s.saveError);
+  const retry = useEditor((s) => s.retrySave);
+  if (!failed) return null;
+  return (
+    <div role="alert" className="flex min-h-11 shrink-0 items-center gap-3 border-b border-danger-line bg-danger-bg px-6 py-2 text-[13.5px] text-danger-ink max-md:px-3">
+      <CloudOff className="size-4 shrink-0" strokeWidth={1.8} />
+      <span className="min-w-0 flex-1">
+        <strong className="font-bold">Couldn&apos;t save your last changes.</strong> {saveError}
+      </span>
+      <button onClick={retry} className="font-bold underline underline-offset-[3px]">
+        Retry now
+      </button>
+    </div>
+  );
+}
+
 /**
  * Offers to bring back edits that never reached the server (closed tab, failed saves).
  * Signed image URLs in the draft may have expired, so fresh ones are put back in.
  */
-function RecoveryBanner({ flipbookId, updatedAt, initialPages }: { flipbookId: string; updatedAt: string; initialPages: Page[] }) {
+function RestoreDialog({ flipbookId, updatedAt, initialPages }: { flipbookId: string; updatedAt: string; initialPages: Page[] }) {
   const store = useEditorStore();
   const [draft, setDraft] = useState<Draft | null>(null);
 
@@ -109,18 +130,33 @@ function RecoveryBanner({ flipbookId, updatedAt, initialPages }: { flipbookId: s
     setDraft(null);
   };
 
-  const when = new Date(draft.at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+  const when = new Date(draft.at).toLocaleString("en-GB", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
   return (
-    <div role="alert" className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-warning/30 bg-warning-soft px-4 py-2 text-[12.5px] text-warning-ink">
-      <span className="min-w-0 flex-1">
-        <strong className="font-semibold">Unsaved changes found.</strong> This browser kept edits from {when} that never reached the server.
-      </span>
-      <button onClick={restore} className="font-semibold text-ink underline underline-offset-2">
-        Restore unsaved changes
-      </button>
-      <button onClick={discard} className="text-warning-ink hover:text-ink">
-        Discard
-      </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="restore-title"
+        aria-describedby="restore-body"
+        className="flex w-[480px] max-w-full flex-col gap-3.5 bg-surface px-8 py-[30px] shadow-modal max-sm:px-5"
+      >
+        <span className="text-[13px] font-semibold text-accent">Unsaved changes found</span>
+        <h2 id="restore-title" className="font-serif text-[34px] leading-[1.05] tracking-[-0.9px]">
+          Restore your last edits?
+        </h2>
+        <p id="restore-body" className="text-sm leading-[1.55] text-ink-2">
+          This browser has changes from {when} that never reached the server, probably because the tab closed while saving. Restoring
+          replaces the saved version.
+        </p>
+        <div className="mt-2 flex flex-wrap justify-end gap-2.5">
+          <Button variant="outline" size="sm" onClick={discard}>
+            Keep saved version
+          </Button>
+          <Button variant="primary" size="sm" className="px-[18px]" onClick={restore} autoFocus>
+            Restore changes
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -155,9 +191,10 @@ function EditorLayout({ flipbookId, title, type, slug, published, updatedAt, pag
   useShortcuts();
   useUnsavedChangesWarning();
   return (
-    <div className="flex h-dvh flex-col bg-editor">
+    <div className="flex h-dvh flex-col bg-canvas">
       <EditorTopbar flipbookId={flipbookId} title={title} type={type} slug={slug} published={published} />
-      <RecoveryBanner flipbookId={flipbookId} updatedAt={updatedAt} initialPages={pages} />
+      <SaveFailedBanner />
+      <RestoreDialog flipbookId={flipbookId} updatedAt={updatedAt} initialPages={pages} />
       <div className="flex min-h-0 flex-1">
         <ToolRail />
         <ToolPanel />

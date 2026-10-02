@@ -69,7 +69,7 @@ test.describe("logging in", () => {
     await page.getByLabel("Password").fill(DEMO_PASSWORD);
     await page.getByRole("button", { name: "Log in" }).click();
     await expect(page).toHaveURL(/\/dashboard\/billing$/);
-    await expect(page.getByRole("heading", { name: "Pro", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Pro(, (yearly|monthly))?$/, level: 1 })).toBeVisible();
   });
 
   test("signing out ends the session", async ({ page }) => {
@@ -80,7 +80,8 @@ test.describe("logging in", () => {
     await page.getByRole("button", { name: "Log in" }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
 
-    await page.getByRole("button", { name: "Sign out" }).click();
+    await page.getByRole("button", { name: "Account menu" }).click();
+    await page.getByRole("menuitem", { name: "Sign out" }).click();
     await expect(page).toHaveURL(/\/login$/);
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login\?next=%2Fdashboard$/);
@@ -99,9 +100,9 @@ test.describe("signing up", () => {
     await page.getByRole("button", { name: "Create account" }).click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByText("No flipbooks yet")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your first issue starts here." })).toBeVisible();
     await expect(page.getByText("Verify your email to publish.")).toBeVisible();
-    await expect(page.getByText("FREE", { exact: true })).toBeVisible();
+    await expect(page.getByText("Free plan", { exact: true })).toBeVisible();
 
     const verification = await latestEmail(email, /Verify your email/);
     await page.goto(verification.url);

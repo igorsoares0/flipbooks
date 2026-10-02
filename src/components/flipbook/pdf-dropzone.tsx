@@ -1,6 +1,6 @@
 "use client";
 
-import { Upload } from "lucide-react";
+import { FileUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -90,68 +90,64 @@ export function PdfDropzone({ maxBytes, maxPages, planName }: { maxBytes: number
         pick(e.dataTransfer.files);
       }}
       className={cn(
-        "flex flex-col items-center rounded-2xl border-[1.5px] border-dashed border-line-strong bg-surface p-[26px] text-center hover:border-accent hover:bg-[#FBFBFF]",
-        dragging && "border-accent bg-[#FBFBFF]",
-        state.step === "error" && "border-danger-line",
+        "flex items-center gap-7 border-[1.5px] border-dashed border-accent px-8 py-[30px] max-sm:px-5",
+        dragging ? "bg-accent-tint" : "bg-accent-wash",
+        state.step === "error" && "border-danger",
       )}
     >
-      <div className="mb-3.5 flex size-[46px] items-center justify-center rounded-xl bg-accent-soft text-accent">
-        <Upload className="size-5" strokeWidth={1.6} />
-      </div>
-      <h2 className="text-[15px] font-semibold">From PDF</h2>
+      <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+        <h2 className="text-[13px] font-semibold text-accent">From a PDF</h2>
+        <p className="font-serif text-[30px] leading-[1.08] tracking-[-0.6px]">{dragging ? "Drop it here." : "Drop a PDF anywhere on this box."}</p>
 
-      {busy ? (
-        <div className="mt-3 mb-4 w-full max-w-[280px]" aria-live="polite">
-          <div className="mb-2 flex justify-between gap-3 text-[12px]">
-            <span className="truncate text-ink-70">{state.filename}</span>
-            <span className="shrink-0 font-mono text-[11px] font-medium text-muted">
-              {state.step === "finishing" ? "Checking…" : `${Math.round(state.progress * 100)}%`}
-            </span>
+        {busy ? (
+          <div className="w-full max-w-[360px]" aria-live="polite">
+            <div className="mb-2 flex justify-between gap-3 text-[13px]">
+              <span className="truncate text-ink-2">{state.filename}</span>
+              <span className="shrink-0 text-muted tabular-nums">
+                {state.step === "finishing" ? "Checking…" : `${Math.round(state.progress * 100)}%`}
+              </span>
+            </div>
+            <Meter value={state.step === "finishing" ? 1 : state.progress} barClassName="transition-[width] duration-150" />
+            <p className="mt-2 text-[12.5px] text-muted">
+              {state.step === "finishing" ? "Almost there. The pages render in the background." : "Keep this tab open until the upload finishes."}
+            </p>
           </div>
-          <Meter
-            value={state.step === "finishing" ? 1 : state.progress}
-            className="bg-track"
-            barClassName="transition-[width] duration-150"
-          />
-          <p className="mt-2 text-[11.5px] text-muted-2">
-            {state.step === "finishing" ? "Almost there. The pages render in the background." : "Keep this tab open until the upload finishes."}
+        ) : (
+          <p className="text-[13.5px] leading-normal text-pretty text-ink-2">
+            Max {maxBytes / 1e6} MB, up to {maxPages} pages on your {planName} plan. Pages render in the background, usually in under a minute.
           </p>
+        )}
+
+        {state.step === "error" && (
+          <p role="alert" className="text-[13px] leading-normal text-danger">
+            {state.message}
+          </p>
+        )}
+
+        <input
+          ref={input}
+          type="file"
+          accept="application/pdf,.pdf"
+          className="sr-only"
+          aria-label="Choose a PDF"
+          onChange={(e) => {
+            pick(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <div className="mt-1.5 flex gap-2.5">
+          {state.step === "uploading" ? (
+            <Button variant="outline" onClick={cancel}>
+              Cancel
+            </Button>
+          ) : (
+            <Button variant="primary" className="px-5" disabled={busy} onClick={() => input.current?.click()}>
+              {state.step === "error" ? "Choose another file" : "Choose file"}
+            </Button>
+          )}
         </div>
-      ) : (
-        <p className="mt-[7px] mb-4 max-w-[280px] text-[12.5px] leading-[1.55] text-pretty text-muted">
-          {dragging
-            ? "Drop it here."
-            : `Drag a PDF here or browse. Max ${maxBytes / 1e6} MB, up to ${maxPages} pages on your ${planName} plan.`}
-        </p>
-      )}
-
-      {state.step === "error" && (
-        <p role="alert" className="-mt-2 mb-3 max-w-[300px] text-[12px] leading-normal text-danger">
-          {state.message}
-        </p>
-      )}
-
-      <input
-        ref={input}
-        type="file"
-        accept="application/pdf,.pdf"
-        className="sr-only"
-        aria-label="Choose a PDF"
-        onChange={(e) => {
-          pick(e.target.files);
-          e.target.value = "";
-        }}
-      />
-      {state.step === "uploading" ? (
-        <Button variant="secondary" className="rounded-lg px-4" onClick={cancel}>
-          Cancel
-        </Button>
-      ) : (
-        <Button variant="accent" className="rounded-lg px-4" disabled={busy} onClick={() => input.current?.click()}>
-          {state.step === "error" ? "Choose another file" : "Choose file"}
-        </Button>
-      )}
-      <div className="mt-3 font-mono text-[10px] font-medium text-muted-3">PDF · UPLOAD → R2 → WORKER → READY</div>
+      </div>
+      <FileUp className="size-10 shrink-0 text-accent max-md:hidden" strokeWidth={1.2} />
     </div>
   );
 }

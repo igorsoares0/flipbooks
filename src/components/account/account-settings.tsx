@@ -9,8 +9,8 @@ import { cn } from "@/lib/utils";
 // Account settings: profile, email, password and deletion. Each section saves on its own,
 // unlike the flipbook settings, because these changes are rarer and need confirmation.
 
-const inputClass =
-  "w-full rounded-[10px] border border-line bg-surface px-3 py-[11px] text-[13px] outline-none placeholder:text-muted-3 focus:border-ink aria-invalid:border-danger";
+const inputClass = "input-line aria-invalid:border-danger";
+const labelText = "flex items-baseline justify-between gap-3 text-[13px] font-semibold";
 
 const ERRORS: Record<string, string> = {
   INVALID_PASSWORD: "That current password isn't right.",
@@ -27,12 +27,25 @@ function errorMessage(error: { code?: string; message?: string; status?: number 
 
 type State = { status: "idle" | "saving" | "done"; message?: string; error?: string };
 
-function Section({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+/** Description on the left, fields on the right, each section on its own rule. */
+function Section({
+  title,
+  description,
+  danger = false,
+  children,
+}: {
+  title: string;
+  description: ReactNode;
+  danger?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <section className="rounded-2xl border border-line bg-surface px-[22px] py-5">
-      <h2 className="text-[13.5px] font-semibold">{title}</h2>
-      <p className="mt-1 mb-4 max-w-[520px] text-[12.5px] leading-[1.55] text-pretty text-muted">{description}</p>
-      {children}
+    <section className={cn("grid gap-x-14 gap-y-4 border-t pt-7 pb-9 md:grid-cols-[280px_minmax(0,1fr)]", danger ? "border-danger-line" : "border-line")}>
+      <div>
+        <h2 className={cn("font-serif text-[24px] leading-tight tracking-[-0.5px]", danger && "text-danger")}>{title}</h2>
+        <p className="mt-1.5 text-[13.5px] leading-[1.55] text-pretty text-muted">{description}</p>
+      </div>
+      <div className="min-w-0">{children}</div>
     </section>
   );
 }
@@ -40,14 +53,14 @@ function Section({ title, description, children }: { title: string; description:
 function Feedback({ state }: { state: State }) {
   if (state.error) {
     return (
-      <p role="alert" className="text-[12.5px] text-danger">
+      <p role="alert" className="text-[13px] text-danger">
         {state.error}
       </p>
     );
   }
   if (state.status === "done" && state.message) {
     return (
-      <p role="status" className="text-[12.5px] text-success">
+      <p role="status" className="text-[13px] text-success">
         {state.message}
       </p>
     );
@@ -121,19 +134,19 @@ export function AccountSettings({ user, hasPassword }: { user: { name: string; e
   };
 
   return (
-    <div className="mx-auto flex max-w-[760px] flex-col gap-[18px]">
-      <div>
-        <h1 className="mt-1 mb-1.5 font-serif text-[34px] leading-[1.1] tracking-[-0.6px]">Settings</h1>
-        <p className="text-[13.5px] text-muted">Your profile, how you sign in, and closing your account.</p>
+    <div className="flex max-w-[1000px] flex-col">
+      <div className="mb-10 flex flex-col gap-2">
+        <h1 className="font-serif text-[40px] leading-none tracking-[-1.2px] md:text-[52px] md:tracking-[-1.6px]">Settings</h1>
+        <p className="text-[15px] text-ink-2">Your profile, how you sign in, and closing your account.</p>
       </div>
 
       <Section title="Profile" description="The name we use in emails and in your workspace.">
-        <form onSubmit={saveProfile} className="flex flex-wrap items-end gap-2.5">
+        <form onSubmit={saveProfile} className="flex flex-wrap items-end gap-x-4 gap-y-3">
           <label className="min-w-[240px] flex-1">
-            <div className="mb-1.5 text-[11.5px] font-semibold">Name</div>
-            <input name="name" defaultValue={user.name} maxLength={80} autoComplete="name" className={inputClass} />
+            <div className={labelText}>Name</div>
+            <input name="name" defaultValue={user.name} maxLength={80} autoComplete="name" placeholder="Your name" className={inputClass} />
           </label>
-          <Button type="submit" disabled={profile.status === "saving"} className="px-4 py-[11px] text-[13px]">
+          <Button type="submit" variant="dark" disabled={profile.status === "saving"}>
             {profile.status === "saving" ? "Saving…" : "Save"}
           </Button>
           <div className="w-full">
@@ -150,18 +163,18 @@ export function AccountSettings({ user, hasPassword }: { user: { name: string; e
             : "Your address isn't verified yet. Changing it sends a verification link to the new address."
         }
       >
-        <form onSubmit={changeEmail} className="flex flex-wrap items-end gap-2.5">
+        <form onSubmit={changeEmail} className="flex flex-wrap items-end gap-x-4 gap-y-3">
           <label className="min-w-[240px] flex-1">
-            <div className="mb-1.5 flex items-baseline gap-2 text-[11.5px] font-semibold">
+            <div className={labelText}>
               New email
-              <span className="font-normal text-muted-2">
+              <span className="text-[12.5px] font-normal text-muted">
                 currently {user.email}
                 {user.emailVerified ? "" : " · unverified"}
               </span>
             </div>
             <input name="email" type="email" autoComplete="email" placeholder="you@studio.co" className={inputClass} />
           </label>
-          <Button type="submit" variant="secondary" disabled={email.status === "saving"} className="px-4 py-[11px] text-[13px]">
+          <Button type="submit" variant="outline" disabled={email.status === "saving"}>
             {email.status === "saving" ? "Sending…" : "Change email"}
           </Button>
           <div className="w-full">
@@ -179,16 +192,25 @@ export function AccountSettings({ user, hasPassword }: { user: { name: string; e
         }
       >
         {hasPassword ? (
-          <form onSubmit={changePassword} className="flex flex-wrap items-end gap-2.5">
+          <form onSubmit={changePassword} className="flex flex-wrap items-end gap-x-4 gap-y-3">
             <label className="min-w-[200px] flex-1">
-              <div className="mb-1.5 text-[11.5px] font-semibold">Current password</div>
-              <input name="currentPassword" type="password" autoComplete="current-password" required className={inputClass} />
+              <div className={labelText}>Current password</div>
+              <input name="currentPassword" type="password" autoComplete="current-password" required placeholder=" " className={inputClass} />
             </label>
             <label className="min-w-[200px] flex-1">
-              <div className="mb-1.5 text-[11.5px] font-semibold">New password</div>
-              <input name="newPassword" type="password" autoComplete="new-password" required minLength={8} maxLength={128} className={inputClass} />
+              <div className={labelText}>New password</div>
+              <input
+                name="newPassword"
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                maxLength={128}
+                placeholder="At least 8 characters"
+                className={inputClass}
+              />
             </label>
-            <Button type="submit" variant="secondary" disabled={password.status === "saving"} className="px-4 py-[11px] text-[13px]">
+            <Button type="submit" variant="outline" disabled={password.status === "saving"}>
               {password.status === "saving" ? "Saving…" : "Change password"}
             </Button>
             <div className="w-full">
@@ -197,7 +219,7 @@ export function AccountSettings({ user, hasPassword }: { user: { name: string; e
           </form>
         ) : (
           <div className="flex flex-col gap-2.5">
-            <Button variant="secondary" onClick={sendPasswordSetup} disabled={password.status === "saving"} className="self-start px-4 py-[11px] text-[13px]">
+            <Button variant="outline" onClick={sendPasswordSetup} disabled={password.status === "saving"} className="self-start">
               {password.status === "saving" ? "Sending…" : "Email me a link"}
             </Button>
             <Feedback state={password} />
@@ -205,21 +227,24 @@ export function AccountSettings({ user, hasPassword }: { user: { name: string; e
         )}
       </Section>
 
-      <section className={cn("rounded-2xl border bg-surface px-[22px] py-5", "border-danger-line")}>
-        <h2 className="text-[13.5px] font-semibold text-danger">Delete account</h2>
-        <p className="mt-1 mb-4 max-w-[520px] text-[12.5px] leading-[1.55] text-pretty text-muted">
-          This removes your flipbooks, their pages and images, and their analytics. Public links and embeds stop working, and any
-          subscription is cancelled. It can&apos;t be undone.
-        </p>
-        <div className="flex flex-wrap items-end gap-2.5">
+      <Section
+        title="Delete account"
+        danger
+        description={
+          <>
+            This removes your flipbooks, their pages and images, and their analytics. Public links and embeds stop working, and any
+            subscription is cancelled. It can&apos;t be undone.
+          </>
+        }
+      >
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
           <label className="min-w-[240px] flex-1">
-            <div className="mb-1.5 text-[11.5px] font-semibold">
-              Type <span className="font-mono">DELETE</span> to confirm
-            </div>
+            <div className={labelText}>Type DELETE to confirm</div>
             <input
               value={confirmDelete}
               onChange={(e) => setConfirmDelete(e.target.value)}
               aria-label="Type DELETE to confirm"
+              placeholder="DELETE"
               className={inputClass}
             />
           </label>
@@ -227,7 +252,6 @@ export function AccountSettings({ user, hasPassword }: { user: { name: string; e
             variant="danger"
             onClick={deleteAccount}
             disabled={confirmDelete.trim().toUpperCase() !== "DELETE" || deletion.status !== "idle"}
-            className="px-4 py-[11px] text-[13px]"
           >
             {deletion.status === "saving" ? "Sending…" : "Delete my account"}
           </Button>
@@ -235,7 +259,7 @@ export function AccountSettings({ user, hasPassword }: { user: { name: string; e
             <Feedback state={deletion} />
           </div>
         </div>
-      </section>
+      </Section>
     </div>
   );
 }

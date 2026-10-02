@@ -8,9 +8,10 @@ import { fit, OG_SIZE, type OgCard } from "./card";
 // Renders the share preview (Open Graph / Twitter) for a card. Runs on the server per
 // request, so it never depends on a signed URL that would expire in a crawler's cache.
 
-const INK = "#17150F";
-const PAPER = "#F3F1EC";
-const MUTED = "#B7B2A5";
+// Reader colors from the design tokens (globals.css).
+const INK = "#1C1C1E";
+const PAPER = "#F2F2F0";
+const MUTED = "#A6A6A8";
 
 let serif: ArrayBuffer | null | undefined;
 

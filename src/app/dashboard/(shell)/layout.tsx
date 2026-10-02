@@ -27,7 +27,6 @@ export default async function ShellLayout({ children }: LayoutProps<"/dashboard"
         limit: formatGb(entitlements.maxStorageBytes),
         ratio: usage.storageBytes / entitlements.maxStorageBytes,
         planLabel: pro ? "Pro plan" : "Free plan",
-        planBadge: pro ? "PRO" : "FREE",
       }}
       flipbookCount={flipbookCount}
     >

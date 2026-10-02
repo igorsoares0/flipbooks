@@ -4,29 +4,27 @@ import { Logo } from "@/components/ui/logo";
 
 // Header and footer shared by the home page and the legal pages.
 
-export const gutter = "px-[clamp(18px,4vw,56px)]";
+export const gutter = "px-[clamp(18px,5vw,72px)]";
 
 export function SiteHeader() {
   return (
-    <header
-      className={`sticky top-0 z-10 flex h-[66px] items-center gap-4 border-b border-line bg-[rgba(243,241,236,.9)] backdrop-blur-[8px] ${gutter}`}
-    >
-      <Link href="/" className="text-ink hover:text-ink">
-        <Logo />
+    <header className={`sticky top-0 z-10 flex h-[76px] items-center gap-10 border-b border-ink bg-paper ${gutter} max-md:h-16 max-md:gap-4`}>
+      <Link href="/" className="text-ink hover:text-ink" aria-label="Flipbook home">
+        <Logo className="text-[32px] max-md:text-[26px]" />
       </Link>
-      <nav className="ml-[26px] flex gap-5 text-[13px] text-ink-70 max-md:hidden">
-        <Link href="/#features" className="hover:text-ink">
+      <nav className="flex gap-7 text-[14.5px] max-md:hidden">
+        <Link href="/#features" className="hover:text-accent">
           Features
         </Link>
-        <Link href="/#pricing" className="hover:text-ink">
+        <Link href="/#pricing" className="hover:text-accent">
           Pricing
         </Link>
-        <Link href="/dashboard/templates" className="hover:text-ink">
+        <Link href="/dashboard/templates" className="hover:text-accent">
           Templates
         </Link>
       </nav>
-      <div className="ml-auto flex items-center gap-2.5">
-        <Link href="/login" className="text-[13px] font-semibold whitespace-nowrap text-ink max-sm:hidden">
+      <div className="ml-auto flex items-center gap-5">
+        <Link href="/login" className="text-[14.5px] font-semibold whitespace-nowrap text-ink hover:text-accent max-sm:hidden">
           Log in
         </Link>
         <ButtonLink href="/register">Start free</ButtonLink>
@@ -45,15 +43,18 @@ export function SiteFooter() {
     { href: "/refunds", label: "Refunds" },
   ];
   return (
-    <footer className={`mx-auto flex max-w-[1180px] flex-wrap items-center gap-3.5 border-t border-line py-[26px] ${gutter}`}>
-      <span className="text-xs text-muted-2">© 2026 Flipbook</span>
-      <nav className="ml-auto flex flex-wrap gap-[18px] text-xs text-muted" aria-label="Footer">
-        {links.map((link) => (
-          <Link key={link.href} href={link.href} className="hover:text-ink">
-            {link.label}
-          </Link>
-        ))}
-      </nav>
-    </footer>
+    <div className={gutter}>
+      <footer className="flex flex-wrap items-center gap-6 border-t border-ink py-7 text-[13.5px] text-muted">
+        <Logo className="text-[22px] text-ink" />
+        <span>© 2026</span>
+        <nav className="ml-auto flex flex-wrap gap-x-[22px] gap-y-2" aria-label="Footer">
+          {links.map((link) => (
+            <Link key={link.href} href={link.href} className="hover:text-ink">
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+      </footer>
+    </div>
   );
 }

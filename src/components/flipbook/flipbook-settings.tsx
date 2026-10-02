@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { PageCanvas } from "@/components/flipbook/page-canvas";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import {
   checkSlugAction,
@@ -33,8 +34,8 @@ const VISIBILITY: { value: Visibility; label: string; sub: string }[] = [
   { value: "PRIVATE", label: "Private", sub: "Only you" },
 ];
 
-const ACCENTS = ["#1B45D6", "#C0392B", "#1C7A52", "#C98A15", "#17150F"];
-const GROUNDS = ["#17150F", "#F3F1EC", "#26303F"];
+const ACCENTS = ["#2B3AE8", "#C0392B", "#1F7A4D", "#B86E00", "#111111"];
+const GROUNDS = ["#1C1C1E", "#F1F2F4", "#26303F"];
 
 type ToggleKey = Exclude<keyof Settings, "backgroundColor" | "accentColor">;
 
@@ -44,7 +45,7 @@ const TOGGLES: { key: ToggleKey; label: string; sub: string }[] = [
   { key: "showDownload", label: "Allow PDF download", sub: "Readers can save the file · Pro" },
   { key: "showFullscreen", label: "Fullscreen button", sub: "Expands the spread" },
   { key: "showThumbnails", label: "Thumbnail strip", sub: "Jump to any page" },
-  { key: "showBranding", label: "Powered by Flipbook", sub: "Pro can hide it" },
+  { key: "showBranding", label: "Made with Flipbook", sub: "Pro can hide it" },
 ];
 
 const SAVE_DELAY = 700;
@@ -93,7 +94,7 @@ function SaveIndicator({ state }: { state: SaveState }) {
   return (
     <span
       aria-live="polite"
-      className={cn("ml-auto flex items-center gap-1.5 self-center pl-3 text-[11.5px] whitespace-nowrap", state.status === "error" ? "text-danger" : "text-muted")}
+      className={cn("ml-auto flex items-center gap-1.5 pb-3 pl-3 text-[12.5px] whitespace-nowrap", state.status === "error" ? "text-danger" : "text-muted")}
     >
       <span
         className={cn(
@@ -106,7 +107,6 @@ function SaveIndicator({ state }: { state: SaveState }) {
   );
 }
 
-const fieldClass = "w-full rounded-[9px] border border-line bg-surface px-3 py-2.5 text-[13px] outline-none focus:border-ink";
 
 function useCopy() {
   const [copied, setCopied] = useState<string | null>(null);
@@ -132,7 +132,7 @@ function Swatches({
   label: string;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-[9px]" role="radiogroup" aria-label={label}>
+    <div className="flex flex-wrap items-center gap-2.5" role="radiogroup" aria-label={label}>
       {colors.map((c) => (
         <button
           key={c}
@@ -141,13 +141,13 @@ function Swatches({
           aria-label={c}
           onClick={() => onChange(c)}
           className={cn(
-            "size-[30px] rounded-[9px]",
-            value === c ? "border-2 border-ink shadow-[inset_0_0_0_2px_#fff]" : "border border-[rgba(23,21,15,.12)]",
+            "size-8 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,.1)]",
+            value === c && "shadow-[inset_0_0_0_1px_rgba(0,0,0,.1),0_0_0_2px_#fff,0_0_0_3.5px_var(--color-accent)]",
           )}
           style={{ background: c }}
         />
       ))}
-      <span className="font-mono text-[11.5px] font-medium text-muted">{value}</span>
+      <span className="ml-1 text-[13px] text-muted tabular-nums">{value}</span>
     </div>
   );
 }
@@ -165,39 +165,49 @@ function LiveViewerPreview({
 }) {
   const dark = isDarkColor(settings.backgroundColor);
   const fg = dark ? "text-on-dark" : "text-ink";
-  const dim = dark ? "text-on-dark-dim-2" : "text-muted-2";
-  const chip = cn("rounded-[14px] border px-2 py-[3px] text-[10px] whitespace-nowrap", fg, dark ? "border-line-dark" : "border-[#D8D2C4]");
+  const dim = dark ? "text-faint" : "text-muted";
+  const chip = cn("rounded-full px-[9px] py-[3px] text-[10px] whitespace-nowrap", fg);
 
   return (
-    <div data-testid="viewer-preview" className="p-[18px]" style={{ background: settings.backgroundColor }}>
-      <div className="mb-3 flex items-center gap-2">
-        {settings.showLogo && (
-          <span className="block size-[18px] shrink-0 rounded-[5px]" style={{ background: settings.accentColor }} />
-        )}
-        <span className={cn("min-w-0 flex-1 truncate text-xs font-semibold", fg)}>{title}</span>
-        {settings.showShare && <span className={chip}>Share</span>}
+    <div data-testid="viewer-preview" className="flex flex-col gap-3.5 p-[18px]" style={{ background: settings.backgroundColor }}>
+      <div className="flex items-center gap-2">
+        {settings.showLogo && <span className="block size-3.5 shrink-0 rounded-[4px]" style={{ background: settings.accentColor }} />}
+        <span className={cn("min-w-0 flex-1 truncate font-serif text-sm", fg)}>{title}</span>
         {settings.showDownload && <span className={chip}>PDF</span>}
         {settings.showFullscreen && <span className={chip}>⤢</span>}
+        {settings.showShare && (
+          <span className={cn("rounded-full px-[9px] py-[3px] text-[10px] font-semibold", dark ? "bg-on-dark text-ink" : "bg-ink text-white")}>Share</span>
+        )}
       </div>
-      <div className="flex w-full shadow-[0_10px_26px_rgba(0,0,0,.35)]">
+      <div className="flex w-full shadow-[0_10px_26px_rgba(0,0,0,.3)]">
         {pages.length > 0 ? (
           pages.map((page) => <PageCanvas key={page.id} page={page} className="w-1/2" />)
         ) : (
           <>
             <div className="aspect-[3/4] w-1/2 bg-on-dark" />
-            <div className="aspect-[3/4] w-1/2 bg-paper-2" />
+            <div className="aspect-[3/4] w-1/2 bg-canvas" />
           </>
         )}
       </div>
-      <div className="mt-3 flex items-center justify-center gap-2">
+      <div className="flex items-center justify-center gap-2.5">
         {settings.showThumbnails && (
-          <span className={cn("block h-3 w-16 rounded-[3px]", dark ? "bg-[rgba(246,244,239,.28)]" : "bg-[rgba(23,21,15,.14)]")} />
+          <span className={cn("block h-2 w-[60px] rounded-[2px]", dark ? "bg-[rgba(242,242,240,.25)]" : "bg-ink/15")} />
         )}
-        <span className={cn("font-mono text-[10px] font-medium", dim)}>
-          {pages.length > 0 ? `${pages.map((p) => p.pageNumber).join("–")} / ${pageCount}` : "No pages yet"}
+        <span className={cn("text-[10.5px] tabular-nums", dim)}>
+          {pages.length > 0 ? (
+            <>
+              <b className={cn("font-semibold", fg)}>{pages.map((p) => p.pageNumber).join("–")}</b> of {pageCount}
+            </>
+          ) : (
+            "No pages yet"
+          )}
         </span>
       </div>
-      {settings.showBranding && <div className={cn("mt-2.5 text-center text-[9.5px]", dim)}>Powered by Flipbook</div>}
+      {settings.showBranding && (
+        <div className={cn("-mt-1.5 text-center text-[10px]", dim)}>
+          Made with <span className={cn("font-serif italic", fg)}>Flipbook</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -328,49 +338,66 @@ export function FlipbookSettings({
     autosave.queue({ settings: next });
   };
 
+  const tile = "flex min-w-0 flex-[1_1_150px] flex-col gap-[3px] px-4 py-3.5 text-left";
+  const chip = "inline-flex h-[30px] items-center rounded-full border border-line-2 px-3.5 text-[13px] whitespace-nowrap text-ink hover:border-ink";
+
   return (
-    <div className="mx-auto flex max-w-[1080px] flex-col gap-[18px]">
-      <div className="flex flex-wrap items-center gap-3.5">
-        <div className="min-w-0">
-          <div className="label-mono text-muted-2">SETTINGS</div>
-          <h1 className="mt-1.5 font-serif text-[30px] leading-[1.1] tracking-[-0.5px]">{title || "Untitled flipbook"}</h1>
+    <div className="flex max-w-[1240px] flex-col">
+      <div className="flex flex-wrap items-end gap-5">
+        <div className="flex min-w-0 flex-col gap-2">
+          <nav aria-label="Breadcrumb" className="text-[13px] text-muted">
+            <Link href="/dashboard/flipbooks" className="hover:text-ink">
+              Flipbooks
+            </Link>{" "}
+            / Settings
+          </nav>
+          <h1 className="font-serif text-[40px] leading-none tracking-[-1.2px] break-words md:text-[52px] md:tracking-[-1.6px]">
+            {title || "Untitled flipbook"}
+          </h1>
         </div>
-        <div className="ml-auto flex gap-2">
-          <ButtonLink href={`/f/${savedSlug}`} variant="secondary">
+        <div className="ml-auto flex gap-2.5">
+          <ButtonLink href={`/f/${savedSlug}`} variant="outline">
             Preview
           </ButtonLink>
+          {pageCount > 0 && (
+            <ButtonLink href={`/dashboard/flipbooks/${flipbook.id}/editor`} variant="outline">
+              Open editor
+            </ButtonLink>
+          )}
           {flipbook.status === "PUBLISHED" || pageCount === 0 ? (
-            <Button onClick={() => selectTab("share")}>Share</Button>
+            <Button variant="primary" onClick={() => selectTab("share")}>
+              Share
+            </Button>
           ) : (
-            <Button variant="accent" onClick={publish} disabled={busy !== null}>
+            <Button variant="primary" onClick={publish} disabled={busy !== null}>
               {busy === "publish" ? "Publishing…" : "Publish"}
             </Button>
           )}
         </div>
       </div>
       {flipbook.status === "FAILED" && flipbook.type === "PDF" && (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-danger-line bg-danger-tint px-4 py-3 text-[12.5px] text-danger">
+        <div role="alert" className="mt-6 flex flex-wrap items-center gap-3 bg-danger-bg px-4 py-3 text-[13.5px] text-danger-ink">
           <span className="min-w-0 flex-1">
-            <span className="font-semibold">Processing failed</span>
+            <span className="font-bold">Processing failed</span>
             {flipbook.error ? ` · ${flipbook.error}` : ""}. Retry, or delete it and upload the PDF again.
           </span>
-          <Button variant="danger" onClick={retry} disabled={retrying}>
+          <Button variant="danger" size="sm" onClick={retry} disabled={retrying}>
             {retrying ? "Queued…" : "Retry processing"}
           </Button>
         </div>
       )}
       {(flipbook.status === "PROCESSING" || flipbook.status === "UPLOADING") && (
-        <p role="status" className="rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-[12.5px] text-warning-ink">
+        <p role="status" className="mt-6 bg-warning-bg px-4 py-3 text-[13.5px] text-warning">
           <span className="font-semibold">Rendering pages…</span> You can already change the settings; the preview fills in when it is done.
         </p>
       )}
       {actionError && (
-        <p role="alert" className="-mt-2 text-[12.5px] text-danger">
+        <p role="alert" className="mt-4 text-[13px] text-danger">
           {actionError}
         </p>
       )}
 
-      <div className="flex gap-1 overflow-x-auto border-b border-line" role="tablist">
+      <div className="mt-7 flex gap-7 overflow-x-auto border-b border-line" role="tablist">
         {TABS.map((t) => (
           <button
             key={t.value}
@@ -378,8 +405,8 @@ export function FlipbookSettings({
             aria-selected={tab === t.value}
             onClick={() => selectTab(t.value)}
             className={cn(
-              "-mb-px mr-[18px] border-b-2 px-1 py-2.5 text-[13px]",
-              tab === t.value ? "border-ink font-semibold text-ink" : "border-transparent font-medium text-muted-2 hover:text-ink",
+              "pb-3 text-sm",
+              tab === t.value ? "font-semibold text-accent shadow-[inset_0_-2px_0_var(--color-accent)]" : "text-ink hover:text-accent",
             )}
           >
             {t.label}
@@ -388,108 +415,93 @@ export function FlipbookSettings({
         <SaveIndicator state={autosave.state} />
       </div>
 
-      <div className="flex flex-wrap items-start gap-[18px]">
-        <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-4">
+      <div className="grid gap-14 pt-8 lg:grid-cols-[minmax(0,1fr)_400px]">
+        <div className="flex min-w-0 flex-col gap-[26px]">
           {tab === "general" && (
             <>
-              <div className="flex flex-col gap-4 rounded-2xl border border-line bg-surface px-[22px] py-5">
-                <label className="block">
-                  <div className="mb-[7px] text-[12.5px] font-semibold">Title</div>
+              <Field label="Title" htmlFor="title">
+                <input
+                  id="title"
+                  value={title}
+                  maxLength={120}
+                  placeholder="Untitled flipbook"
+                  aria-invalid={!title.trim() || undefined}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    if (e.target.value.trim()) autosave.queue({ title: e.target.value.trim() });
+                  }}
+                  className="input-line aria-invalid:border-danger"
+                />
+                {!title.trim() && <p className="mt-1.5 text-[12.5px] text-danger">Give it a title.</p>}
+              </Field>
+              <Field
+                label="Public address"
+                htmlFor="slug"
+                hintTone={slugMessage ? "danger" : slugChecked ? "success" : "muted"}
+                hint={slugMessage ? (slugServerProblem === "That address is taken." ? "Taken" : "Invalid") : slugChecked ? "Available" : "Checking…"}
+              >
+                <div className="flex h-11 items-center border-b-[1.5px] border-ink text-[15px] focus-within:border-ink has-disabled:border-b has-disabled:border-line-2">
+                  <span className="whitespace-nowrap text-faint">{host}/f/</span>
                   <input
-                    value={title}
-                    maxLength={120}
-                    aria-invalid={!title.trim() || undefined}
-                    onChange={(e) => {
-                      setTitle(e.target.value);
-                      if (e.target.value.trim()) autosave.queue({ title: e.target.value.trim() });
-                    }}
-                    className={cn(fieldClass, "aria-invalid:border-danger")}
+                    id="slug"
+                    value={slug}
+                    disabled={!canUseCustomSlug}
+                    maxLength={80}
+                    onChange={(e) => changeSlug(e.target.value)}
+                    onBlur={commitSlug}
+                    onKeyDown={(e) => e.key === "Enter" && commitSlug()}
+                    className="h-full min-w-0 flex-1 bg-transparent outline-none focus-visible:outline-none disabled:text-muted"
                   />
-                  {!title.trim() && <p className="mt-1.5 text-[11px] text-danger">Give it a title.</p>}
-                </label>
-                <div>
-                  <label htmlFor="slug" className="mb-[7px] block text-[12.5px] font-semibold">
-                    Public URL
-                  </label>
-                  <div className="flex items-center overflow-hidden rounded-[9px] border border-line focus-within:border-ink">
-                    <span className="py-2.5 pl-3 font-mono text-[12.5px] font-medium whitespace-nowrap text-muted-3">
-                      {host}/f/
-                    </span>
-                    <input
-                      id="slug"
-                      value={slug}
-                      disabled={!canUseCustomSlug}
-                      maxLength={80}
-                      onChange={(e) => changeSlug(e.target.value)}
-                      onBlur={commitSlug}
-                      onKeyDown={(e) => e.key === "Enter" && commitSlug()}
-                      className="min-w-0 flex-1 bg-transparent py-2.5 pr-3 pl-0.5 font-mono text-[12.5px] font-medium outline-none disabled:text-muted"
-                    />
-                    <span
-                      className={cn(
-                        "px-3 text-[11px] whitespace-nowrap",
-                        slugMessage ? "text-danger" : slugChecked ? "text-success" : "text-muted-3",
-                      )}
-                    >
-                      {slugMessage ? (slugServerProblem === "That address is taken." ? "Taken" : "Invalid") : slugChecked ? "Available" : "Checking…"}
-                    </span>
-                  </div>
-                  <p className={cn("mt-1.5 text-[11px]", slugMessage ? "text-danger" : "text-muted-2")}>
-                    {slugMessage ??
-                      (canUseCustomSlug
-                        ? "Changing the address breaks links you have already shared."
-                        : "Custom addresses are part of Pro.")}
-                  </p>
                 </div>
-                <label className="block">
-                  <div className="mb-[7px] text-[12.5px] font-semibold">
-                    Description <span className="font-normal text-muted-2">· used for SEO and link previews</span>
-                  </div>
-                  <textarea
-                    value={description}
-                    maxLength={DESCRIPTION_MAX}
-                    onChange={(e) => {
-                      setDescription(e.target.value);
-                      autosave.queue({ description: e.target.value });
-                    }}
-                    className={cn(fieldClass, "min-h-16 resize-y leading-normal text-ink-70")}
-                  />
-                  <div className="mt-1.5 font-mono text-[10.5px] font-medium text-muted-3">
-                    {description.length} / {DESCRIPTION_MAX}
-                  </div>
-                </label>
-                <div>
-                  <div className="mb-[9px] text-[12.5px] font-semibold">Visibility</div>
-                  <div className="flex flex-wrap gap-[9px]" role="radiogroup" aria-label="Visibility">
-                    {VISIBILITY.map((v) => (
-                      <button
-                        key={v.value}
-                        role="radio"
-                        aria-checked={visibility === v.value}
-                        onClick={() => {
-                          setVisibility(v.value);
-                          autosave.queue({ visibility: v.value });
-                        }}
-                        className={cn(
-                          "flex min-w-0 flex-[1_1_150px] flex-col gap-[3px] rounded-[10px] border-[1.5px] px-[13px] py-[11px] text-left",
-                          visibility === v.value ? "border-ink bg-surface-selected" : "border-line bg-surface hover:border-muted-3",
-                        )}
-                      >
-                        <span className="text-[12.5px] font-semibold">{v.label}</span>
-                        <span className="text-[11px] leading-[1.4] text-muted-2">{v.sub}</span>
-                      </button>
-                    ))}
-                  </div>
+                <p className={cn("mt-1.5 text-[12.5px]", slugMessage ? "text-danger" : "text-muted")}>
+                  {slugMessage ??
+                    (canUseCustomSlug ? "Changing the address breaks links you have already shared." : "Custom addresses are part of Pro.")}
+                </p>
+              </Field>
+              <Field label="Description" htmlFor="description" hint={`${description.length} / ${DESCRIPTION_MAX}`}>
+                <textarea
+                  id="description"
+                  value={description}
+                  maxLength={DESCRIPTION_MAX}
+                  placeholder="What is this flipbook about?"
+                  onChange={(e) => {
+                    setDescription(e.target.value);
+                    autosave.queue({ description: e.target.value });
+                  }}
+                  className="input-line h-auto min-h-11 resize-y py-2.5 leading-[1.45]"
+                />
+                <p className="mt-1.5 text-[12.5px] text-muted">Used for search engines and link previews.</p>
+              </Field>
+              <div className="flex flex-col gap-2.5">
+                <span className="text-[13px] font-semibold" id="visibility-label">
+                  Who can read it
+                </span>
+                <div className="flex flex-wrap gap-2.5" role="radiogroup" aria-labelledby="visibility-label">
+                  {VISIBILITY.map((v) => (
+                    <button
+                      key={v.value}
+                      role="radio"
+                      aria-checked={visibility === v.value}
+                      onClick={() => {
+                        setVisibility(v.value);
+                        autosave.queue({ visibility: v.value });
+                      }}
+                      className={cn(tile, visibility === v.value ? "border-[1.5px] border-ink" : "border border-line-2 hover:border-ink")}
+                    >
+                      <span className={cn("text-sm", visibility === v.value && "font-semibold")}>{v.label}</span>
+                      <span className="text-[12.5px] leading-[1.4] whitespace-normal text-muted">{v.sub}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-3.5 rounded-2xl border border-danger-line bg-surface px-[22px] py-[18px]">
+              <div className="flex flex-wrap items-center gap-4 border-t border-line pt-5">
                 <div className="min-w-[200px] flex-1">
-                  <div className="text-[12.5px] font-semibold text-danger">Delete flipbook</div>
-                  <div className="mt-[3px] text-[11.5px] text-muted-2">Removes pages, assets and analytics. Cannot be undone.</div>
+                  <div className="text-sm font-semibold text-danger">Delete flipbook</div>
+                  <div className="mt-0.5 text-[12.5px] text-muted">Removes pages, images and analytics. Can&apos;t be undone.</div>
                 </div>
                 {confirmDelete ? (
                   <div className="flex gap-2">
-                    <Button variant="secondary" onClick={() => setConfirmDelete(false)} disabled={busy === "delete"}>
+                    <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={busy === "delete"}>
                       Cancel
                     </Button>
                     <Button variant="danger" className="border-danger bg-danger text-white hover:bg-danger/90" onClick={remove} disabled={busy === "delete"}>
@@ -506,36 +518,30 @@ export function FlipbookSettings({
           )}
 
           {tab === "branding" && (
-            <div className="flex flex-col gap-[18px] rounded-2xl border border-line bg-surface px-[22px] py-5">
-              <div>
-                <div className="mb-2.5 text-[12.5px] font-semibold">Accent color</div>
+            <>
+              <div className="flex flex-col gap-3">
+                <div className="text-[13px] font-semibold">Accent color</div>
                 <Swatches colors={ACCENTS} value={settings.accentColor} onChange={(c) => update({ accentColor: c })} label="Accent color" />
               </div>
-              <div>
-                <div className="mb-2.5 text-[12.5px] font-semibold">Viewer background</div>
-                <Swatches
-                  colors={GROUNDS}
-                  value={settings.backgroundColor}
-                  onChange={(c) => update({ backgroundColor: c })}
-                  label="Viewer background"
-                />
+              <div className="flex flex-col gap-3">
+                <div className="text-[13px] font-semibold">Reader background</div>
+                <Swatches colors={GROUNDS} value={settings.backgroundColor} onChange={(c) => update({ backgroundColor: c })} label="Reader background" />
               </div>
               <div>
-                <div className="mb-1 text-[12.5px] font-semibold">Viewer controls</div>
-                <div className="mb-3 text-[11.5px] text-muted-2">What readers see around the pages.</div>
-                <div className="flex flex-col">
+                <h2 className="font-serif text-[24px] leading-tight tracking-[-0.5px]">Reader controls</h2>
+                <p className="mt-1 mb-3 text-[13px] text-muted">What readers see around the pages.</p>
+                <div className="flex flex-col border-b border-line">
                   {TOGGLES.map((t) => {
                     const locked = (t.key === "showBranding" && !canRemoveBranding) || (t.key === "showDownload" && !canOfferDownload);
                     return (
-                      <div key={t.key} className="flex items-center gap-3 border-t border-line-soft py-2.5">
+                      <div key={t.key} className="flex min-h-[58px] items-center gap-3 border-t border-line py-2.5">
                         <div className="min-w-0 flex-1">
-                          <div className="text-[12.5px] font-medium">{t.label}</div>
-                          <div className="mt-0.5 text-[11px] text-muted-2">{t.sub}</div>
+                          <div className="text-sm">{t.label}</div>
+                          <div className="mt-0.5 text-[12.5px] text-muted">{t.sub}</div>
                         </div>
                         <Switch
                           label={t.label}
                           checked={settings[t.key]}
-                          color={settings.accentColor}
                           disabled={locked}
                           onCheckedChange={(checked) => update({ [t.key]: checked })}
                         />
@@ -544,76 +550,63 @@ export function FlipbookSettings({
                   })}
                 </div>
               </div>
-            </div>
+            </>
           )}
 
           {tab === "share" && (
-            <div className="flex flex-col gap-[18px] rounded-2xl border border-line bg-surface px-[22px] py-5">
-              <div>
-                <div className="mb-2 text-[12.5px] font-semibold">Public link</div>
-                <div className="flex flex-wrap gap-2">
-                  <div className="min-w-0 flex-[1_1_240px] truncate rounded-[9px] border border-line px-3 py-2.5 font-mono text-[12.5px] font-medium">
-                    {publicUrl}
-                  </div>
-                  <Button onClick={() => copy("link", publicUrl)} className="px-4 py-2.5">
+            <>
+              <div className="flex flex-col gap-3">
+                <div className="text-[13px] font-semibold">Public link</div>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <div className="flex h-11 min-w-0 flex-[1_1_240px] items-center truncate border-b-[1.5px] border-ink text-[15px]">{publicUrl}</div>
+                  <Button variant="primary" onClick={() => copy("link", publicUrl)}>
                     {copied === "link" ? "Copied" : "Copy link"}
                   </Button>
                 </div>
-                <div className="mt-2.5 flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                   {shareTargets.map((s) => (
-                    <a
-                      key={s.label}
-                      href={s.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-[20px] border border-line bg-surface-sunken px-[13px] py-1.5 text-[11.5px] leading-[1.4] whitespace-nowrap text-ink hover:border-ink hover:text-ink"
-                    >
+                    <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" className={chip}>
                       {s.label}
                     </a>
                   ))}
-                  <button className="rounded-[20px] border border-line bg-surface-sunken px-[13px] py-1.5 text-[11.5px] leading-[1.4] hover:border-ink">
-                    QR code
-                  </button>
+                  <button className={chip}>QR code</button>
                 </div>
               </div>
-              <div>
-                <div className="mb-2 text-[12.5px] font-semibold">Embed</div>
-                <div className="overflow-auto rounded-[10px] bg-ink px-4 py-3.5">
-                  <pre className="font-mono text-[11.5px] leading-[1.7] whitespace-pre text-line-strong">{embedCode}</pre>
-                </div>
-                <div className="mt-2.5 flex flex-wrap gap-2">
-                  <Button variant="secondary" onClick={() => copy("embed", embedCode)}>
+              <div className="flex flex-col gap-3">
+                <div className="text-[13px] font-semibold">Embed</div>
+                {/* The only mono text in the app. */}
+                <pre className="overflow-auto bg-ink px-5 py-4 font-mono text-[12.5px] leading-[1.7] whitespace-pre text-line-2">{embedCode}</pre>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={() => copy("embed", embedCode)}>
                     {copied === "embed" ? "Copied" : "Copy code"}
                   </Button>
-                  <Button variant="secondary">WordPress shortcode</Button>
+                  <Button variant="outline">WordPress shortcode</Button>
                 </div>
               </div>
-              <div className="border-t border-line-soft pt-4">
-                <div className="mb-2 text-[12.5px] font-semibold">Link preview</div>
-                <div className="flex gap-3 overflow-hidden rounded-[11px] border border-line">
-                  <div className="w-[118px] shrink-0 bg-[linear-gradient(150deg,#E8DFC9,#D2C4A4)]" />
-                  <div className="min-w-0 py-[13px] pr-3.5">
-                    <div className="font-mono text-[10px] font-medium text-muted-3">{host.toUpperCase()}</div>
-                    <div className="mt-[5px] text-[13px] font-semibold">{title}</div>
-                    <div className="mt-1 text-[11.5px] leading-normal text-muted">{description}</div>
+              <div className="flex flex-col gap-3 border-t border-line pt-5">
+                <div className="text-[13px] font-semibold">Link preview</div>
+                <div className="flex gap-3.5 overflow-hidden border border-line">
+                  <div className="w-[118px] shrink-0 bg-canvas" />
+                  <div className="min-w-0 py-3.5 pr-4">
+                    <div className="text-[12px] text-muted">{host}</div>
+                    <div className="mt-1 font-serif text-[18px] leading-tight">{title}</div>
+                    <div className="mt-1 text-[13px] leading-normal text-muted">{description}</div>
                   </div>
                 </div>
               </div>
-            </div>
+            </>
           )}
         </div>
 
-        <aside className="sticky top-[90px] min-w-0 flex-[1_1_300px]">
-          <div className="label-mono mb-2.5 text-muted-2">LIVE VIEWER PREVIEW</div>
-          <div className="overflow-hidden rounded-[14px] border border-line">
-            <LiveViewerPreview title={title} settings={settings} pages={previewPages} pageCount={pageCount} />
-          </div>
-          <p className="mt-2.5 text-[11.5px] leading-normal text-muted-2">
+        <aside aria-label="What readers see" className="flex min-w-0 flex-col gap-3 self-start lg:sticky lg:top-11">
+          <span className="text-[13px] text-muted">What readers see</span>
+          <LiveViewerPreview title={title} settings={settings} pages={previewPages} pageCount={pageCount} />
+          <p className="text-[12.5px] leading-normal text-muted">
             {canRemoveBranding ? (
               "Pro lets you remove the Flipbook badge."
             ) : (
               <>
-                <Link href="/dashboard/billing?upgrade=branding" className="font-semibold text-ink underline underline-offset-2">
+                <Link href="/dashboard/billing?upgrade=branding" className="font-semibold text-accent underline underline-offset-[3px] hover:text-ink">
                   Upgrade to Pro
                 </Link>{" "}
                 to remove the Flipbook badge.

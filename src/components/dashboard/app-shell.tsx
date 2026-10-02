@@ -3,22 +3,23 @@
 import {
   BookOpen,
   ChartNoAxesColumn,
+  ChevronsUpDown,
   CreditCard,
+  Globe,
   House,
   Image as ImageIcon,
   LayoutTemplate,
+  LogOut,
   Menu,
   Plus,
-  Search,
   Settings,
   X,
   type LucideIcon,
 } from "lucide-react";
-import Form from "next/form";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { authClient } from "@/lib/auth/client";
 import { Logo } from "@/components/ui/logo";
 import { Meter } from "@/components/ui/meter";
@@ -43,34 +44,58 @@ const NAV: NavItem[] = [
   { label: "Settings", href: "/dashboard/settings", icon: Settings, isActive: (p) => p === "/dashboard/settings" },
 ];
 
-function titleFor(path: string) {
-  if (path === "/dashboard") return "Dashboard";
-  if (path === "/dashboard/flipbooks/new") return "Create flipbook";
-  if (/\/flipbooks\/[^/]+\/settings$/.test(path)) return "Flipbook settings";
-  if (isAnalyticsPath(path)) return "Analytics";
-  return NAV.find((item) => item.isActive(path))?.label ?? "Dashboard";
-}
-
 export type ShellUser = { name: string; email: string; initials: string; emailVerified: boolean };
-export type ShellStorage = { used: string; limit: string; ratio: number; planLabel: string; planBadge: string };
+export type ShellStorage = { used: string; limit: string; ratio: number; planLabel: string };
 
-function SignOutButton() {
+/** Sign-out and the public site live in a small menu on the user row. */
+function UserMenu({ user, planLabel }: { user: ShellUser; planLabel: string }) {
+  const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
+  const signOut = async () => {
+    setPending(true);
+    await authClient.signOut();
+    // A full page load drops the client router cache, so Back can't show signed-in pages.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- intentional hard navigation
+    window.location.assign("/login");
+  };
+  const item = "flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[13.5px] hover:bg-hover";
+
   return (
-    <Button
-      variant="secondary"
-      className="flex-1 rounded-lg p-[7px] text-[11px] text-ink-70"
-      disabled={pending}
-      onClick={async () => {
-        setPending(true);
-        await authClient.signOut();
-        // A full page load drops the client router cache, so Back can't show signed-in pages.
-        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- intentional hard navigation
-        window.location.assign("/login");
-      }}
+    <div
+      className="relative"
+      onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setOpen(false)}
+      onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
     >
-      Sign out
-    </Button>
+      <button
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Account menu"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-2.5 border-t border-line pt-4 text-left"
+      >
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-tint text-xs font-bold text-accent">
+          {user.initials}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-[13.5px] font-semibold">{user.name}</span>
+          <span className="truncate text-xs text-muted">{planLabel}</span>
+        </span>
+        <ChevronsUpDown className="size-3.5 shrink-0 opacity-55" strokeWidth={1.6} />
+      </button>
+      {open && (
+        <div role="menu" className="absolute bottom-full left-0 z-50 mb-2 w-full bg-surface p-1 shadow-menu">
+          <div className="truncate px-2.5 pt-1.5 pb-2 text-xs text-muted">{user.email}</div>
+          <Link role="menuitem" href="/" className={item}>
+            <Globe className="size-4 opacity-60" strokeWidth={1.6} />
+            Site
+          </Link>
+          <button role="menuitem" className={item} disabled={pending} onClick={signOut}>
+            <LogOut className="size-4 opacity-60" strokeWidth={1.6} />
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -83,7 +108,7 @@ function VerifyEmailBanner({ email }: { email: string }) {
     setState(error ? "error" : "sent");
   };
   return (
-    <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-warning/25 bg-warning-soft px-4 py-2.5 text-[12.5px] text-warning-ink md:px-7">
+    <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-warning-bg px-4 py-2.5 text-[13px] text-warning md:px-14">
       <span>
         <span className="font-semibold">Verify your email to publish.</span> We sent a link to {email}.
       </span>
@@ -109,15 +134,15 @@ function Sidebar({
 }) {
   return (
     <>
-      <div className="flex items-center gap-2.5 px-5 pt-[22px] pb-[18px]">
+      <Link href="/dashboard" onClick={onNavigate} className="self-start px-2.5" aria-label="Flipbook dashboard">
         <Logo />
-        <span className="ml-auto rounded border border-line px-[5px] py-0.5 font-mono text-[9px] font-medium text-muted-2">
-          {storage.planBadge}
-        </span>
-      </div>
+      </Link>
+      <ButtonLink href="/dashboard/flipbooks/new" onClick={onNavigate} className="mt-[26px] w-full">
+        <Plus className="size-[15px]" strokeWidth={1.8} />
+        New flipbook
+      </ButtonLink>
 
-      <nav className="flex flex-col gap-0.5 px-3 py-1.5">
-        <div className="label-mono px-2 pt-2.5 pb-1.5 text-muted-3">WORKSPACE</div>
+      <nav className="mt-[22px] flex flex-col gap-0.5" aria-label="Workspace">
         {NAV.map((item) => {
           const active = item.isActive(pathname);
           const Icon = item.icon;
@@ -128,51 +153,29 @@ function Sidebar({
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex w-full items-center gap-2.5 rounded-[9px] px-[9px] py-2 text-[12.5px]",
-                active ? "bg-surface-alt font-semibold text-ink" : "font-medium text-ink-70 hover:bg-paper",
+                "flex h-[38px] w-full items-center gap-3 rounded-[10px] px-3 text-sm",
+                active ? "bg-accent-tint font-semibold text-accent" : "text-ink hover:bg-hover",
               )}
             >
-              <Icon className="size-[15px] opacity-80" strokeWidth={1.6} />
+              <Icon className={cn("size-4", !active && "opacity-55")} strokeWidth={1.6} />
               <span>{item.label}</span>
-              {item.label === "Flipbooks" && (
-                <span className="ml-auto rounded-[20px] bg-warning-soft px-1.5 py-0.5 font-mono text-[10px] font-medium text-warning-ink">
-                  {flipbookCount}
-                </span>
-              )}
+              {item.label === "Flipbooks" && <span className="ml-auto text-xs font-normal text-faint tabular-nums">{flipbookCount}</span>}
             </Link>
           );
         })}
       </nav>
 
-      <div className="mt-auto p-4">
-        <div className="rounded-xl border border-line bg-surface-sunken px-3.5 py-[13px]">
-          <div className="mb-2 flex items-baseline justify-between">
-            <span className="text-xs font-semibold">Storage</span>
-            <span className="font-mono text-[11px] font-medium text-muted">
-              {storage.used} / {storage.limit} GB
+      <div className="mt-auto flex flex-col gap-4 px-2.5">
+        <div className="flex flex-col gap-2">
+          <div className="flex justify-between gap-2 text-[12.5px]">
+            <span className="text-muted">Storage</span>
+            <span>
+              {storage.used} of {storage.limit} GB
             </span>
           </div>
-          <Meter value={storage.ratio} className="rounded bg-[#E9E5DB]" barClassName="rounded" />
-          <div className="mt-[9px] text-[11px] leading-[1.4] text-muted-2">
-            {storage.planLabel} · {Math.round(storage.ratio * 100)}% used
-          </div>
+          <Meter value={storage.ratio} label="Storage used" />
         </div>
-        <div className="mt-3 flex gap-1.5">
-          <ButtonLink href="/" variant="secondary" className="flex-1 rounded-lg p-[7px] text-[11px] text-ink-70">
-            Site
-          </ButtonLink>
-          <SignOutButton />
-
-        </div>
-        <div className="mt-3.5 flex items-center gap-2.5 px-0.5">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft-2 text-[11.5px] font-semibold text-accent">
-            {user.initials}
-          </div>
-          <div className="min-w-0">
-            <div className="truncate text-[12.5px] font-semibold">{user.name}</div>
-            <div className="truncate text-[11px] text-muted-2">{user.email}</div>
-          </div>
-        </div>
+        <UserMenu user={user} planLabel={storage.planLabel} />
       </div>
     </>
   );
@@ -194,11 +197,11 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen items-stretch">
-      {/* Desktop: sticky rail. Below md: off-canvas drawer (the narrow dashboard is not designed yet). */}
+      {/* Desktop: sticky sidebar. Below md: off-canvas drawer behind a slim top bar. */}
       <aside
         className={cn(
-          "z-40 flex h-screen w-[236px] shrink-0 flex-col border-r border-line bg-surface",
-          "fixed inset-y-0 left-0 transition-none md:sticky md:top-0",
+          "z-40 flex h-dvh w-60 shrink-0 flex-col border-r border-line bg-surface px-4 pt-[26px] pb-5",
+          "fixed inset-y-0 left-0 md:sticky md:top-0",
           drawerOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
       >
@@ -213,46 +216,26 @@ export function AppShell({
       {drawerOpen && (
         <button
           aria-label="Close menu"
-          className="fixed inset-0 z-30 bg-ink/30 md:hidden"
+          className="fixed inset-0 z-30 bg-ink/45 md:hidden"
           onClick={() => setDrawerOpen(false)}
         />
       )}
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-[62px] shrink-0 items-center gap-4 border-b border-line bg-[rgba(243,241,236,.85)] px-4 backdrop-blur-[8px] md:px-7">
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-line bg-paper px-4 md:hidden">
           <button
             aria-label="Open menu"
-            className="-ml-1 flex size-[30px] items-center justify-center rounded-lg border border-line bg-surface md:hidden"
+            className="-ml-1 flex size-9 items-center justify-center rounded-full border border-line-2"
             onClick={() => setDrawerOpen(true)}
           >
-            {drawerOpen ? <X className="size-3.5" /> : <Menu className="size-3.5" />}
+            {drawerOpen ? <X className="size-4" /> : <Menu className="size-4" />}
           </button>
-          <div className="truncate text-[15px] font-semibold tracking-[-0.2px]">{titleFor(pathname)}</div>
-          <div className="flex-1" />
-          <Form
-            action="/dashboard/flipbooks"
-            className="hidden w-60 min-w-0 flex-[0_1_240px] items-center gap-2 overflow-hidden rounded-[9px] border border-line bg-surface px-[11px] py-[7px] focus-within:border-ink sm:flex"
-          >
-            <Search className="size-3.5 shrink-0 text-muted-2" strokeWidth={1.6} />
-            <input
-              name="q"
-              type="search"
-              placeholder="Search flipbooks"
-              aria-label="Search flipbooks"
-              className="w-full min-w-0 bg-transparent text-[12.5px] outline-none placeholder:text-muted-3"
-            />
-          </Form>
-          <ButtonLink href="/dashboard/flipbooks/new" className="text-[13px]">
-            <Plus className="size-[13px]" strokeWidth={1.8} />
-            Create flipbook
-          </ButtonLink>
+          <Logo className="text-[24px]" />
         </header>
 
         {!user.emailVerified && <VerifyEmailBanner email={user.email} />}
 
-        <div key={pathname} className="flex-1 animate-fbfade px-4 pt-7 pb-[60px] md:px-7">
-          {children}
-        </div>
+        <div className="flex-1 px-4 pt-8 pb-16 md:px-14 md:pt-11">{children}</div>
       </main>
     </div>
   );

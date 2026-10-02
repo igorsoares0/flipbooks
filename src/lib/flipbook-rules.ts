@@ -7,8 +7,8 @@ export const PAGE_WIDTH = 520;
 export const PAGE_HEIGHT = 690;
 
 export const DEFAULT_SETTINGS: FlipbookSettings = {
-  backgroundColor: "#17150F",
-  accentColor: "#1B45D6",
+  backgroundColor: "#1C1C1E",
+  accentColor: "#2B3AE8",
   showBranding: true,
   showLogo: true,
   showShare: true,

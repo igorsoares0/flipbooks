@@ -3,34 +3,34 @@ import { expect, signedOut, test } from "./fixtures";
 test.describe("public viewer", () => {
   test("opens on the cover and pages through spreads", async ({ page }) => {
     await page.goto("/f/summer-catalog");
-    const counter = page.getByText(/^\d+(–\d+)? \/ 64$/);
-    await expect(counter).toHaveText("1 / 64");
+    const counter = page.getByText(/^\d+(–\d+)? of 64$/);
+    await expect(counter).toHaveText("1 of 64");
     await expect(page.getByRole("button", { name: "Previous pages" })).toBeDisabled();
 
     await page.getByRole("button", { name: "Next pages" }).click();
-    await expect(counter).toHaveText("2–3 / 64");
+    await expect(counter).toHaveText("2–3 of 64");
     await page.getByRole("button", { name: "Next pages" }).click();
-    await expect(counter).toHaveText("4–5 / 64");
+    await expect(counter).toHaveText("4–5 of 64");
   });
 
   test("keyboard navigation", async ({ page }) => {
     await page.goto("/f/summer-catalog?page=4");
-    const counter = page.getByText(/^\d+(–\d+)? \/ 64$/);
-    await expect(counter).toHaveText("4–5 / 64");
+    const counter = page.getByText(/^\d+(–\d+)? of 64$/);
+    await expect(counter).toHaveText("4–5 of 64");
     await page.keyboard.press("ArrowRight");
-    await expect(counter).toHaveText("6–7 / 64");
+    await expect(counter).toHaveText("6–7 of 64");
     await page.keyboard.press("ArrowLeft");
-    await expect(counter).toHaveText("4–5 / 64");
+    await expect(counter).toHaveText("4–5 of 64");
     await page.keyboard.press("End");
-    await expect(counter).toHaveText("64 / 64");
+    await expect(counter).toHaveText("64 of 64");
     await expect(page.getByRole("button", { name: "Next pages" })).toBeDisabled();
     await page.keyboard.press("Home");
-    await expect(counter).toHaveText("1 / 64");
+    await expect(counter).toHaveText("1 of 64");
   });
 
   test("deep links open a spread and stay in sync", async ({ page }) => {
     await page.goto("/f/summer-catalog?page=5");
-    await expect(page.getByText("4–5 / 64")).toBeVisible();
+    await expect(page.getByText("4–5 of 64")).toBeVisible();
     await expect(page.getByText("CHAPTER TWO")).toBeVisible();
     await page.keyboard.press("ArrowRight");
     await expect(page).toHaveURL(/page=6$/);
@@ -38,13 +38,13 @@ test.describe("public viewer", () => {
 
   test("out-of-range deep links clamp to the book", async ({ page }) => {
     await page.goto("/f/summer-catalog?page=999");
-    await expect(page.getByText("64 / 64")).toBeVisible();
+    await expect(page.getByText("64 of 64")).toBeVisible();
   });
 
   test("thumbnails jump and can be hidden", async ({ page }) => {
     await page.goto("/f/summer-catalog");
     await page.getByRole("button", { name: "Go to page 10" }).click();
-    await expect(page.getByText("10–11 / 64")).toBeVisible();
+    await expect(page.getByText("10–11 of 64")).toBeVisible();
     await page.getByRole("button", { name: "Thumbnails" }).click();
     await expect(page.getByRole("button", { name: "Go to page 10" })).toBeHidden();
   });
@@ -89,7 +89,7 @@ test.describe("page turn", () => {
     await recordFrames(page);
 
     await page.getByRole("button", { name: "Next pages" }).click();
-    await expect(counter(page)).toHaveText("6–7 / 64");
+    await expect(counter(page)).toHaveText("6–7 of 64");
 
     // The sheet was in the air for part of the turn, and is gone now the spread has landed.
     const frames = await framesOf(page);
@@ -104,7 +104,7 @@ test.describe("page turn", () => {
     await recordFrames(page);
 
     await page.getByRole("button", { name: "Next pages" }).click();
-    await expect(counter(page)).toHaveText("6–7 / 64");
+    await expect(counter(page)).toHaveText("6–7 of 64");
 
     const frames = await framesOf(page);
     const lift = frames.findIndex((frame) => frame.startsWith("leaf"));
@@ -118,7 +118,7 @@ test.describe("page turn", () => {
     // The second click lands while the first sheet is still in the air.
     await next.click();
     await next.click();
-    await expect(counter(page)).toHaveText("8–9 / 64");
+    await expect(counter(page)).toHaveText("8–9 of 64");
   });
 
   test("dragging the outer edge turns the page", async ({ page }) => {
@@ -130,11 +130,11 @@ test.describe("page turn", () => {
     await page.mouse.move(book.x + book.width * 0.3, y, { steps: 12 });
     await expect(page.getByTestId("turning-leaf")).toBeVisible();
     await page.mouse.up();
-    await expect(counter(page)).toHaveText("6–7 / 64");
+    await expect(counter(page)).toHaveText("6–7 of 64");
     // The page the reader carried over stays over; nothing turns back on its own.
     await page.waitForTimeout(900);
     await expect(page.getByTestId("turning-leaf")).toHaveCount(0);
-    await expect(counter(page)).toHaveText("6–7 / 64");
+    await expect(counter(page)).toHaveText("6–7 of 64");
   });
 
   test("the corner the reader grabs decides which way the fold slants", async ({ page }) => {
@@ -165,7 +165,7 @@ test.describe("page turn", () => {
     await page.mouse.move(book.x + book.width - 60, y, { steps: 6 });
     await page.mouse.up();
     await expect(page.getByTestId("turning-leaf")).toHaveCount(0);
-    await expect(counter(page)).toHaveText("4–5 / 64");
+    await expect(counter(page)).toHaveText("4–5 of 64");
   });
 
   test("readers who ask for less motion get no animation", async ({ browser, baseURL }) => {
@@ -173,7 +173,7 @@ test.describe("page turn", () => {
     const page = await context.newPage();
     await page.goto("/f/summer-catalog?page=4");
     await page.getByRole("button", { name: "Next pages" }).click();
-    await expect(counter(page)).toHaveText("6–7 / 64");
+    await expect(counter(page)).toHaveText("6–7 of 64");
     await expect(page.getByTestId("turning-leaf")).toHaveCount(0);
     await context.close();
   });
@@ -182,14 +182,14 @@ test.describe("page turn", () => {
     const context = await browser.newContext({ ...signedOut, baseURL, viewport: { width: 390, height: 780 }, hasTouch: true });
     const page = await context.newPage();
     await page.goto("/f/summer-catalog?page=5");
-    await expect(counter(page)).toHaveText("5 / 64");
+    await expect(counter(page)).toHaveText("5 of 64");
     await page.getByRole("button", { name: "Next pages" }).click();
-    await expect(counter(page)).toHaveText("6 / 64");
+    await expect(counter(page)).toHaveText("6 of 64");
     await expect(page).toHaveURL(/page=6/);
 
     // Widening the window pairs the pages again, around the page being read.
     await page.setViewportSize({ width: 1280, height: 860 });
-    await expect(counter(page)).toHaveText("6–7 / 64");
+    await expect(counter(page)).toHaveText("6–7 of 64");
     await context.close();
   });
 });
@@ -197,7 +197,7 @@ test.describe("page turn", () => {
 test.describe("embed", () => {
   test("shows only the reader, without dashboard chrome", async ({ page }) => {
     await page.goto("/embed/fb_8Kd2?page=4");
-    await expect(page.getByText("4–5 / 64")).toBeVisible();
+    await expect(page.getByText("4–5 of 64")).toBeVisible();
     await expect(page.getByRole("link", { name: "Back to dashboard" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Thumbnails" })).toHaveCount(0);
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
@@ -206,9 +206,9 @@ test.describe("embed", () => {
   test("works inside an iframe", async ({ page, baseURL }) => {
     await page.setContent(`<iframe src="${baseURL}/embed/fb_8Kd2" width="800" height="600"></iframe>`);
     const frame = page.frameLocator("iframe");
-    await expect(frame.getByText("1 / 64")).toBeVisible();
+    await expect(frame.getByText("1 of 64")).toBeVisible();
     await frame.getByRole("button", { name: "Next pages" }).click();
-    await expect(frame.getByText("2–3 / 64")).toBeVisible();
+    await expect(frame.getByText("2–3 of 64")).toBeVisible();
   });
 });
 

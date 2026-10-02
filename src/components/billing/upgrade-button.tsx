@@ -22,6 +22,7 @@ export function UpgradeButton({
   paddle,
   variant = "primary",
   className,
+  errorClassName,
   children,
 }: {
   interval: BillingInterval;
@@ -29,6 +30,8 @@ export function UpgradeButton({
   paddle: PaddleClientConfig | null;
   variant?: ButtonVariant;
   className?: string;
+  /** The error shows under the button; on the accent column it needs light text. */
+  errorClassName?: string;
   children: React.ReactNode;
 }) {
   const [busy, setBusy] = useState(false);
@@ -64,7 +67,7 @@ export function UpgradeButton({
         {busy ? "Opening checkout…" : children}
       </Button>
       {error && (
-        <p role="alert" className="text-[12px] text-danger">
+        <p role="alert" className={cn("text-[12.5px] text-danger", errorClassName)}>
           {error}
         </p>
       )}

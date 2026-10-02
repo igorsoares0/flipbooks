@@ -161,7 +161,7 @@ export function Artboard() {
     <div
       ref={viewportRef}
       data-testid="artboard"
-      className={cn("relative flex min-h-0 flex-1 overflow-auto", dropping && "bg-accent-soft")}
+      className={cn("relative flex min-h-0 flex-1 overflow-auto", dropping && "bg-accent-tint")}
       style={{ padding: PADDING }}
       onPointerDown={(e) => e.button === 0 && store.getState().select(null)}
       onDragOver={(e) => {
@@ -185,7 +185,7 @@ export function Artboard() {
         <PageCanvas
           page={page}
           // isolate keeps element z-indexes inside the page, under the transform layer.
-          className="isolate shadow-canvas"
+          className="isolate shadow-page"
           style={{ width: "100%" }}
           renderElement={(element) => {
             const editing = element.id === editingId && element.type === "TEXT";

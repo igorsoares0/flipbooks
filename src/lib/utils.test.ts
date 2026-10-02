@@ -8,8 +8,8 @@ describe("cn", () => {
   });
 
   it("keeps custom color tokens next to font sizes", () => {
-    expect(cn("text-[12.5px] text-muted-2")).toBe("text-[12.5px] text-muted-2");
-    expect(cn("text-ink", "text-ink-70")).toBe("text-ink-70");
+    expect(cn("text-[12.5px] text-muted")).toBe("text-[12.5px] text-muted");
+    expect(cn("text-ink", "text-ink-2")).toBe("text-ink-2");
   });
 
   it("drops falsy values", () => {

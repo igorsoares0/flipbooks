@@ -24,7 +24,7 @@ test.describe("PDF upload", () => {
     await expect(book.locator("img")).toHaveJSProperty("complete", true);
 
     await book.getByRole("link", { name: "Preview Spring lookbook 2027" }).click();
-    await expect(page.getByText("1 / 3")).toBeVisible();
+    await expect(page.getByText("1 of 3")).toBeVisible();
     const cover = page.getByRole("img", { name: "Page 1" });
     await expect(cover).toBeVisible();
     // Lazy-loaded from storage: wait until the rendered page has actually arrived.
@@ -43,7 +43,7 @@ test.describe("PDF upload", () => {
   test("the free plan's limits are shown before uploading", async ({ page }) => {
     await signInAsNewUser(page, { plan: "FREE" });
     await page.goto("/dashboard/flipbooks/new");
-    await expect(page.getByText("Max 20 MB, up to 15 pages on your Free plan.")).toBeVisible();
+    await expect(page.getByText(/Max 20 MB, up to 15 pages on your Free plan\./)).toBeVisible();
   });
 
   test("an unreadable PDF fails with a reason and can be retried", async ({ page }) => {

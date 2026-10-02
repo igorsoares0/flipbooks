@@ -13,10 +13,10 @@ export function LegalPage({ title, children }: { title: string; children: ReactN
   return (
     <div className="min-h-dvh bg-paper">
       <SiteHeader />
-      <main className={`mx-auto max-w-[760px] py-[clamp(40px,6vw,72px)] ${gutter}`}>
-        <h1 className="font-serif text-[clamp(36px,5vw,52px)] leading-[1.05] tracking-[-1px]">{title}</h1>
-        <p className="mt-3 text-[13px] text-muted-2">Last updated {UPDATED}</p>
-        <div className="mt-8 flex flex-col gap-4 text-[14.5px] leading-[1.7] text-ink-70 [&_a]:font-medium [&_a]:text-ink [&_a]:underline [&_a]:underline-offset-2 [&_h2]:mt-6 [&_h2]:text-[17px] [&_h2]:font-semibold [&_h2]:text-ink [&_li]:ml-5 [&_li]:list-disc">
+      <main className={`max-w-[880px] py-[clamp(40px,6vw,72px)] ${gutter}`}>
+        <h1 className="font-serif text-[clamp(40px,5vw,60px)] leading-none tracking-[-1.8px]">{title}</h1>
+        <p className="mt-4 text-[13.5px] text-muted">Last updated {UPDATED}</p>
+        <div className="mt-10 flex max-w-[680px] flex-col gap-4 border-t border-ink pt-8 text-[15px] leading-[1.7] text-ink-2 [&_a]:font-medium [&_a]:text-accent [&_a]:underline [&_a]:underline-offset-[3px] [&_a:hover]:text-ink [&_h2]:mt-6 [&_h2]:font-serif [&_h2]:text-[24px] [&_h2]:leading-tight [&_h2]:tracking-[-0.5px] [&_h2]:text-ink [&_li]:ml-5 [&_li]:list-disc">
           {children}
         </div>
       </main>

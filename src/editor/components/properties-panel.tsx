@@ -17,7 +17,7 @@ import {
   SendToBack,
   type LucideIcon,
 } from "lucide-react";
-import { useId, useState, type ReactNode } from "react";
+import { useId, useState, type CSSProperties, type ReactNode } from "react";
 import { FONT_LABEL } from "@/components/flipbook/page-canvas";
 import { TypeBadge } from "@/components/ui/badges";
 import { Button } from "@/components/ui/button";
@@ -29,18 +29,17 @@ import type { Align, Arrange, ElementPatch } from "../state/editor-store";
 const SWATCHES = ["#17150F", "#FFFFFF", "#1B45D6", "#C0392B", "#1C7A52", "#C98A15"];
 const PAGE_SWATCHES = ["#FFFFFF", "#F6F4EF", "#F4EFE6", "#EDF1FB", "#EFF3EF", "#17150F"];
 const HEX = /^#[0-9a-f]{6}$/i;
+const KIND = { TEXT: "Text", IMAGE: "Image", SHAPE: "Shape" } as const;
 
-const box = "rounded-lg border border-line px-[9px] py-[7px] text-[12.5px]";
-const input = "w-full min-w-0 bg-transparent font-medium outline-none";
-
-function SectionLabel({ children }: { children: ReactNode }) {
-  return <div className="label-mono mb-[9px] text-muted-3">{children}</div>;
-}
+/** Label/value on an underline, darker while focused. */
+const underline = "border-b border-line-2 pb-1.5 focus-within:border-ink";
+const input = "w-full min-w-0 bg-transparent outline-none";
+const select = "w-full min-w-0 border-b border-line-2 bg-transparent pb-1.5 text-[13.5px] outline-none focus:border-ink";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="mb-[18px]">
-      <SectionLabel>{title}</SectionLabel>
+    <section className="flex flex-col gap-3 border-b border-line px-[22px] py-4">
+      <h3 className="text-[12.5px] font-semibold text-accent">{title}</h3>
       {children}
     </section>
   );
@@ -81,15 +80,15 @@ function NumberField({
     onChange(clamp(Number(n.toFixed(decimals)), min, max));
   };
   return (
-    <label className={cn(box, "flex items-center gap-[7px]", disabled ? "bg-surface-sunken text-muted-2" : "focus-within:border-accent")}>
-      <span className="font-mono text-[10.5px] font-medium text-muted-3" aria-hidden>
+    <label className={cn(underline, "flex items-baseline gap-2", disabled && "text-muted")}>
+      <span className="shrink-0 text-muted" aria-hidden>
         {short}
       </span>
       <input
         aria-label={label}
         type="number"
         inputMode="decimal"
-        className={cn(input, "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none")}
+        className={cn(input, "text-right tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none")}
         value={shown}
         step={step}
         min={min}
@@ -130,16 +129,26 @@ function RangeField({
   onChange: (value: number) => void;
 }) {
   const id = useId();
+  const pct = ((value - min) / (max - min)) * 100;
   return (
-    <div className="mb-3">
-      <div className="mb-1 flex justify-between text-xs">
-        <label htmlFor={id}>{label}</label>
-        <span className="font-mono text-[11.5px] font-medium text-muted">{display}</span>
+    <div className="flex flex-col gap-2">
+      <div className="flex justify-between">
+        <label htmlFor={id} className="text-muted">
+          {label}
+        </label>
+        <span className="tabular-nums">{display}</span>
       </div>
       <input
         id={id}
         type="range"
-        className="w-full accent-ink"
+        className={cn(
+          "h-3.5 w-full cursor-pointer appearance-none bg-transparent",
+          "[&::-webkit-slider-runnable-track]:h-0.5 [&::-webkit-slider-runnable-track]:bg-(image:--track)",
+          "[&::-webkit-slider-thumb]:-mt-1.5 [&::-webkit-slider-thumb]:size-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-[1.5px] [&::-webkit-slider-thumb]:border-ink [&::-webkit-slider-thumb]:bg-white",
+          "[&::-moz-range-track]:h-0.5 [&::-moz-range-track]:bg-(image:--track)",
+          "[&::-moz-range-thumb]:size-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-[1.5px] [&::-moz-range-thumb]:border-ink [&::-moz-range-thumb]:bg-white",
+        )}
+        style={{ "--track": `linear-gradient(to right, var(--color-ink) ${pct}%, var(--color-line) ${pct}%)` } as CSSProperties}
         min={min}
         max={max}
         step={step}
@@ -154,8 +163,8 @@ function ColorField({ label, value, swatches, onChange }: { label: string; value
   const [draft, setDraft] = useState<string | null>(null);
   const current = value.toUpperCase();
   return (
-    <div>
-      <div className="mb-2 flex flex-wrap items-center gap-[7px]" role="group" aria-label={`${label} swatches`}>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label={`${label} swatches`}>
         {swatches.map((c) => (
           <button
             key={c}
@@ -164,24 +173,24 @@ function ColorField({ label, value, swatches, onChange }: { label: string; value
             aria-pressed={c === current}
             onClick={() => onChange(c)}
             className={cn(
-              "size-[26px] rounded-[7px] border border-line",
-              c === current && "border-[1.5px] border-ink shadow-[inset_0_0_0_2px_#fff]",
+              "size-[26px] rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,.1)]",
+              c === current && "shadow-[inset_0_0_0_1px_rgba(0,0,0,.1),0_0_0_2px_#fff,0_0_0_3.5px_var(--color-accent)]",
             )}
             style={{ background: c }}
           />
         ))}
       </div>
-      <div className={cn(box, "flex items-center gap-2 focus-within:border-accent")}>
+      <div className={cn(underline, "flex items-center gap-2")}>
         <input
           type="color"
           aria-label={`${label} picker`}
           value={HEX.test(value) ? value.toLowerCase() : "#000000"}
           onChange={(e) => onChange(e.target.value.toUpperCase())}
-          className="size-5 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0 [&::-webkit-color-swatch]:rounded [&::-webkit-color-swatch]:border-line [&::-webkit-color-swatch-wrapper]:p-0"
+          className="size-5 shrink-0 cursor-pointer rounded-full border-0 bg-transparent p-0 [&::-moz-color-swatch]:rounded-full [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-line [&::-webkit-color-swatch-wrapper]:p-0"
         />
         <input
           aria-label={label}
-          className={cn(input, "font-mono text-[11.5px] uppercase")}
+          className={cn(input, "uppercase tabular-nums")}
           value={draft ?? current}
           maxLength={7}
           onChange={(e) => {
@@ -209,7 +218,7 @@ function Segmented<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div className="flex gap-1.5" role="group" aria-label={label}>
+    <div className="flex gap-0.5 rounded-full border border-line-2 p-0.5" role="group" aria-label={label}>
       {options.map((option) => (
         <button
           key={option.value}
@@ -217,8 +226,8 @@ function Segmented<T extends string>({
           aria-pressed={option.value === value}
           onClick={() => onChange(option.value)}
           className={cn(
-            "flex-1 rounded-lg border p-[7px] text-center text-xs capitalize",
-            option.value === value ? "border-ink font-semibold" : "border-line text-muted hover:border-line-strong",
+            "h-[26px] flex-1 rounded-full text-center",
+            option.value === value ? "bg-ink font-semibold text-white" : "text-ink hover:bg-hover",
           )}
         >
           {option.label}
@@ -237,11 +246,11 @@ function IconButton({ icon: Icon, label, onClick, pressed }: { icon: LucideIcon;
       aria-pressed={pressed}
       onClick={onClick}
       className={cn(
-        "grid h-8 flex-1 place-items-center rounded-lg border text-ink hover:border-line-strong",
-        pressed ? "border-ink bg-surface-alt" : "border-line",
+        "grid h-8 flex-1 place-items-center rounded-full border text-ink hover:border-ink",
+        pressed ? "border-ink bg-ink text-white" : "border-line-2",
       )}
     >
-      <Icon className="size-3.5" strokeWidth={1.75} />
+      <Icon className="size-3.5" strokeWidth={1.6} />
     </button>
   );
 }
@@ -253,12 +262,12 @@ function TextProperties({ element, update }: { element: TextElement; update: Upd
   const setProp = (field: keyof TextElement["properties"], value: unknown) => update({ properties: { [field]: value } }, field);
   return (
     <>
-      <Section title="TYPOGRAPHY">
+      <Section title="Typography">
         <select
           aria-label="Font"
           value={p.fontFamily}
           onChange={(e) => setProp("fontFamily", e.target.value as FontFamily)}
-          className={cn(box, "mb-2 w-full bg-surface px-2.5 py-2 outline-none focus:border-accent")}
+          className={cn(select, "border-ink text-[16px]")}
         >
           {(Object.keys(FONT_LABEL) as FontFamily[]).map((family) => (
             <option key={family} value={family}>
@@ -266,13 +275,13 @@ function TextProperties({ element, update }: { element: TextElement; update: Upd
             </option>
           ))}
         </select>
-        <div className="mb-2 grid grid-cols-2 gap-2">
-          <NumberField label="Font size" short="PX" value={p.fontSize} min={4} max={400} onChange={(v) => setProp("fontSize", v)} />
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <NumberField label="Font size" short="Size" value={p.fontSize} min={4} max={400} onChange={(v) => setProp("fontSize", v)} />
           <select
             aria-label="Font weight"
             value={p.fontWeight}
             onChange={(e) => setProp("fontWeight", Number(e.target.value))}
-            className={cn(box, "bg-surface outline-none focus:border-accent")}
+            className={select}
           >
             {[
               [400, "Regular"],
@@ -285,10 +294,10 @@ function TextProperties({ element, update }: { element: TextElement; update: Upd
               </option>
             ))}
           </select>
-          <NumberField label="Line height" short="LH" value={p.lineHeight} min={0.5} max={4} step={0.05} decimals={2} onChange={(v) => setProp("lineHeight", v)} />
+          <NumberField label="Line height" short="Leading" value={p.lineHeight} min={0.5} max={4} step={0.05} decimals={2} onChange={(v) => setProp("lineHeight", v)} />
           <NumberField
             label="Letter spacing"
-            short="LS"
+            short="Tracking"
             value={p.letterSpacing}
             min={-20}
             max={40}
@@ -308,7 +317,7 @@ function TextProperties({ element, update }: { element: TextElement; update: Upd
           onChange={(align) => setProp("align", align)}
         />
       </Section>
-      <Section title="COLOR">
+      <Section title="Color">
         <ColorField label="Text color" value={p.color} swatches={SWATCHES} onChange={(color) => setProp("color", color)} />
       </Section>
     </>
@@ -318,11 +327,11 @@ function TextProperties({ element, update }: { element: TextElement; update: Upd
 function ShapeProperties({ element, update }: { element: ShapeElement; update: Update }) {
   const p = element.properties;
   return (
-    <Section title="FILL">
+    <Section title="Fill">
       <ColorField label="Fill color" value={p.fill} swatches={SWATCHES} onChange={(fill) => update({ properties: { fill } }, "fill")} />
       {p.shape === "rect" && (
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <NumberField label="Corner radius" short="R" value={p.radius} min={0} max={1000} onChange={(radius) => update({ properties: { radius } }, "radius")} />
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <NumberField label="Corner radius" short="Radius" value={p.radius} min={0} max={1000} onChange={(radius) => update({ properties: { radius } }, "radius")} />
         </div>
       )}
     </Section>
@@ -333,7 +342,7 @@ function ImageProperties({ element, update }: { element: ImageElement; update: U
   const assets = useEditor((s) => s.assets);
   const [replacing, setReplacing] = useState(false);
   return (
-    <Section title="IMAGE">
+    <Section title="Image">
       <Segmented
         label="Image fit"
         value={element.properties.fit}
@@ -343,14 +352,14 @@ function ImageProperties({ element, update }: { element: ImageElement; update: U
         ]}
         onChange={(fit) => update({ properties: { fit } }, "fit")}
       />
-      <Button variant="secondary" size="sm" className="mt-2 w-full p-2 text-xs" onClick={() => setReplacing((r) => !r)} aria-expanded={replacing}>
+      <Button variant="outline" size="sm" className="w-full" onClick={() => setReplacing((r) => !r)} aria-expanded={replacing}>
         Replace image
       </Button>
       {replacing &&
         (assets.length === 0 ? (
-          <p className="mt-2 text-[11.5px] text-muted-2">Upload images from the Uploads panel first.</p>
+          <p className="text-[12.5px] text-muted">Upload images from the Uploads panel first.</p>
         ) : (
-          <ul className="mt-2 grid grid-cols-3 gap-1.5" aria-label="Replace with">
+          <ul className="grid grid-cols-3 gap-1.5" aria-label="Replace with">
             {assets.map((asset) => (
               <li key={asset.key}>
                 <button
@@ -359,7 +368,7 @@ function ImageProperties({ element, update }: { element: ImageElement; update: U
                     update({ properties: { assetKey: asset.key, imageUrl: asset.url } }, "asset");
                     setReplacing(false);
                   }}
-                  className="block aspect-square w-full overflow-hidden rounded-md border border-line hover:border-accent"
+                  className="block aspect-square w-full overflow-hidden bg-canvas hover:shadow-[0_0_0_2px_var(--color-accent)]"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={asset.url} alt="" className="size-full object-cover" draggable={false} />
@@ -382,8 +391,8 @@ function ElementProperties({ element }: { element: PageElement }) {
 
   return (
     <>
-      <Section title="POSITION & SIZE">
-        <div className="grid grid-cols-2 gap-2">
+      <Section title="Position & size">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <NumberField label="X" short="X" value={element.x} disabled={element.locked} onChange={(x) => update({ x }, "x")} />
           <NumberField label="Y" short="Y" value={element.y} disabled={element.locked} onChange={(y) => update({ y }, "y")} />
           <NumberField label="Width" short="W" value={element.width} min={1} disabled={element.locked} onChange={(width) => update({ width }, "width")} />
@@ -396,10 +405,10 @@ function ElementProperties({ element }: { element: PageElement }) {
             onChange={(height) => update({ height }, "height")}
           />
         </div>
-        {autoHeight && <p className="mt-1.5 text-[10.5px] text-muted-3">Text height follows its content.</p>}
+        {autoHeight && <p className="text-[12px] text-muted">Text height follows its content.</p>}
       </Section>
 
-      <Section title="TRANSFORM">
+      <Section title="Transform">
         <RangeField
           label="Rotation"
           value={element.rotation}
@@ -422,7 +431,7 @@ function ElementProperties({ element }: { element: PageElement }) {
       {element.type === "SHAPE" && <ShapeProperties element={element} update={update} />}
       {element.type === "IMAGE" && <ImageProperties element={element} update={update} />}
 
-      <Section title="ARRANGE">
+      <Section title="Arrange">
         <div className="flex gap-1.5">
           {(
             [
@@ -466,14 +475,14 @@ function PageProperties() {
   const setPageBackground = useEditor((s) => s.setPageBackground);
   return (
     <>
-      <Section title="PAGE SIZE">
-        <div className="grid grid-cols-2 gap-2">
+      <Section title="Page size">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <NumberField label="Page width" short="W" value={page.width} disabled onChange={() => undefined} />
           <NumberField label="Page height" short="H" value={page.height} disabled onChange={() => undefined} />
         </div>
       </Section>
       {!page.backgroundImageKey && (
-        <Section title="BACKGROUND">
+        <Section title="Background">
           <ColorField label="Background color" value={page.background.color} swatches={PAGE_SWATCHES} onChange={setPageBackground} />
         </Section>
       )}
@@ -491,28 +500,32 @@ export function PropertiesPanel() {
   const many = selected.length > 1;
 
   const title = element ? element.name : many ? `${selected.length} elements` : `Page ${page.pageNumber}`;
-  const badge = element ? element.type : many ? "GROUP" : "PAGE";
+  const kind = element ? KIND[element.type] : many ? "Group" : "Page";
+  const subtitle = element ? `${kind} on page ${page.pageNumber}` : many ? `On page ${page.pageNumber}` : `${pageCount} ${pageCount === 1 ? "page" : "pages"} in this book`;
 
   return (
-    <aside className="w-[250px] shrink-0 overflow-auto border-l border-line bg-surface p-4 max-md:hidden" aria-label="Properties">
-      <div className="mb-4 flex items-center gap-2">
-        <h2 className="truncate text-[12.5px] font-semibold">{title}</h2>
-        <TypeBadge className="ml-auto">{badge}</TypeBadge>
+    <aside className="flex w-[280px] shrink-0 flex-col overflow-auto border-l border-line bg-surface text-[13.5px] max-md:hidden" aria-label="Properties">
+      <div className="flex items-start gap-2.5 border-b border-line px-[22px] pt-5 pb-3.5">
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate font-serif text-[24px] leading-tight tracking-[-0.5px]">{title}</h2>
+          <div className="mt-0.5 text-[12.5px] text-muted">{subtitle}</div>
+        </div>
+        <TypeBadge className="mt-1">{kind}</TypeBadge>
       </div>
 
       {element && <ElementProperties key={element.id} element={element} />}
       {!element && !many && <PageProperties />}
       {(many || element) && (
-        <Section title={many ? "ALIGN" : "ALIGN TO PAGE"}>
+        <Section title={many ? "Align" : "Align to page"}>
           <AlignButtons />
         </Section>
       )}
 
-      <div className="mt-[22px] flex gap-2 border-t border-[#F0ECE3] pt-3.5">
-        <Button variant="secondary" size="sm" className="flex-1 p-2 text-xs" onClick={duplicate}>
+      <div className="mt-auto flex gap-2 border-t border-line px-[22px] py-4">
+        <Button variant="outline" size="sm" className="flex-1 px-3" onClick={duplicate}>
           {selected.length === 0 ? "Duplicate page" : "Duplicate"}
         </Button>
-        <Button variant="danger" size="sm" className="flex-1 p-2 text-xs" onClick={remove} disabled={selected.length === 0 && pageCount === 1}>
+        <Button variant="danger" size="sm" className="flex-1 px-3" onClick={remove} disabled={selected.length === 0 && pageCount === 1}>
           {selected.length === 0 ? "Delete page" : "Delete"}
         </Button>
       </div>

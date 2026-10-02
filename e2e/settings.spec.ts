@@ -19,7 +19,7 @@ test.describe("flipbook settings (read-only)", () => {
     await page.goto(SETTINGS);
     await page.getByRole("tab", { name: "Branding" }).click();
     await expect(page).toHaveURL(/tab=branding/);
-    await expect(page.getByText("Viewer controls")).toBeVisible();
+    await expect(page.getByText("Reader controls")).toBeVisible();
   });
 
   test("header Share jumps to the share tab and copies the link", async ({ page }) => {
@@ -42,7 +42,7 @@ test.describe("flipbook settings (read-only)", () => {
 test.describe("flipbook settings (saving)", () => {
   test("title, description, visibility and branding save as you edit", async ({ page }) => {
     const book = await ownCopy(page);
-    const preview = page.getByRole("complementary").filter({ hasText: "LIVE VIEWER PREVIEW" });
+    const preview = page.getByRole("complementary").filter({ hasText: "What readers see" });
 
     await page.getByRole("textbox").first().fill("Autumn Catalog");
     await expect(preview.getByText("Autumn Catalog")).toBeVisible();
@@ -52,18 +52,18 @@ test.describe("flipbook settings (saving)", () => {
     await saved(page);
 
     await page.getByRole("tab", { name: "Branding" }).click();
-    await page.getByRole("switch", { name: "Powered by Flipbook" }).click();
-    await expect(preview.getByText("Powered by Flipbook")).toBeHidden();
-    await page.getByRole("radio", { name: "#F3F1EC" }).click();
-    await expect(page.getByTestId("viewer-preview")).toHaveCSS("background-color", "rgb(243, 241, 236)");
+    await page.getByRole("switch", { name: "Made with Flipbook" }).click();
+    await expect(preview.getByText("Made with Flipbook")).toBeHidden();
+    await page.getByRole("radio", { name: "#F1F2F4" }).click();
+    await expect(page.getByTestId("viewer-preview")).toHaveCSS("background-color", "rgb(241, 242, 244)");
     await saved(page);
 
     await page.reload();
     await expect(page.getByRole("heading", { name: "Autumn Catalog" })).toBeVisible();
-    await expect(page.getByTestId("viewer-preview")).toHaveCSS("background-color", "rgb(243, 241, 236)");
+    await expect(page.getByTestId("viewer-preview")).toHaveCSS("background-color", "rgb(241, 242, 244)");
     const row = await getFlipbookRow(book.id);
     expect(row).toMatchObject({ title: "Autumn Catalog", description: "Short.", visibility: "UNLISTED" });
-    expect(row?.settings).toMatchObject({ showBranding: false, backgroundColor: "#F3F1EC" });
+    expect(row?.settings).toMatchObject({ showBranding: false, backgroundColor: "#F1F2F4" });
   });
 
   test("an empty title is flagged and not saved", async ({ page }) => {
@@ -76,7 +76,7 @@ test.describe("flipbook settings (saving)", () => {
 
   test("the address checks format and availability, then saves on blur", async ({ page }) => {
     const book = await ownCopy(page);
-    const slug = page.getByLabel("Public URL");
+    const slug = page.getByLabel("Public address");
 
     await slug.fill("summer catalog!");
     await expect(page.getByText("Use lowercase letters, numbers and single hyphens.")).toBeVisible();
@@ -97,9 +97,9 @@ test.describe("flipbook settings (saving)", () => {
 
   test("the free plan can't hide the badge or pick an address", async ({ page }) => {
     await ownCopy(page, { plan: "FREE" });
-    await expect(page.getByLabel("Public URL")).toBeDisabled();
+    await expect(page.getByLabel("Public address")).toBeDisabled();
     await page.getByRole("tab", { name: "Branding" }).click();
-    await expect(page.getByRole("switch", { name: "Powered by Flipbook" })).toBeDisabled();
+    await expect(page.getByRole("switch", { name: "Made with Flipbook" })).toBeDisabled();
     await expect(page.getByRole("switch", { name: "Allow PDF download" })).toBeDisabled();
   });
 

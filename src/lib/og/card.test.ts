@@ -38,7 +38,7 @@ describe("share preview card", () => {
 
   it("falls back to a line of copy, counts one page, and ignores a broken accent", () => {
     const card = flipbookCard(book({ description: "   ", pageCount: 1, settings: { ...DEFAULT_SETTINGS, accentColor: "red" } }), "flipbook.co", null);
-    expect(card).toMatchObject({ subtitle: "Read it online, on any device.", meta: "flipbook.co/f/summer-catalog · 1 page", accent: "#17150F", coverKey: null });
+    expect(card).toMatchObject({ subtitle: "Read it online, on any device.", meta: "flipbook.co/f/summer-catalog · 1 page", accent: "#2B3AE8", coverKey: null });
   });
 
   it("has a generic card for the site and for books readers can't see", () => {

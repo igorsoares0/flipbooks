@@ -25,12 +25,12 @@ export function Switch({
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
       className={cn(
-        "flex h-[22px] w-[38px] shrink-0 rounded-[20px] p-0.5 disabled:cursor-not-allowed disabled:opacity-50",
-        checked ? "justify-end bg-accent" : "justify-start bg-switch-off",
+        "flex h-5 w-9 shrink-0 rounded-full p-0.5 disabled:cursor-not-allowed disabled:opacity-50",
+        checked ? "justify-end bg-accent" : "justify-start bg-line-2",
       )}
       style={checked && color ? { background: color } : undefined}
     >
-      <span className="block size-[18px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.2)]" />
+      <span className="block size-4 rounded-full bg-white" />
     </button>
   );
 }

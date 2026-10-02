@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 export function OpenEditorButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" className="rounded-lg px-4" disabled={pending}>
+    <Button type="submit" variant="outline" className="px-5" disabled={pending}>
       {pending ? "Creating…" : "Open editor"}
     </Button>
   );

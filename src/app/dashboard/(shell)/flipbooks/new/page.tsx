@@ -1,4 +1,3 @@
-import { SquarePlus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { OpenEditorButton } from "@/components/flipbook/open-editor-button";
@@ -17,44 +16,45 @@ export default async function CreateFlipbookPage() {
   const atLimit = billing.usage.flipbooks >= maxFlipbooks;
 
   return (
-    <div className="mx-auto flex max-w-[980px] flex-col gap-[22px]">
-      <div>
-        <h1 className="mt-1 mb-1.5 font-serif text-[34px] leading-[1.1] tracking-[-0.6px]">Create a flipbook</h1>
-        <p className="text-[13.5px] text-muted">Two ways in. Both end up in the same viewer, publishing and analytics.</p>
+    <div className="flex max-w-[1240px] flex-col">
+      <div className="flex flex-wrap items-end gap-x-10 gap-y-3">
+        <h1 className="font-serif text-[44px] leading-none tracking-[-1.4px] md:text-[60px] md:tracking-[-1.8px]">A new flipbook</h1>
+        <p className="mb-2 max-w-[420px] text-[15px] leading-normal text-ink-2">Two ways in. Both end in the same reader, link, embed and analytics.</p>
       </div>
 
       {atLimit && (
-        <p role="status" className="rounded-xl border border-accent/25 bg-accent-soft px-4 py-3 text-[13px] text-accent">
+        <p role="status" className="mt-6 bg-accent-tint px-4 py-3 text-[13.5px] text-accent">
           <span className="font-semibold">
             You&apos;ve used all {maxFlipbooks} flipbooks on the {planName} plan.
           </span>{" "}
           Delete one, or{" "}
-          <Link href="/dashboard/billing?upgrade=flipbooks" className="font-semibold underline underline-offset-2">
+          <Link href="/dashboard/billing?upgrade=flipbooks" className="font-semibold underline underline-offset-[3px]">
             upgrade to Pro
           </Link>{" "}
           for up to 100.
         </p>
       )}
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))] gap-4">
+      <div className="mt-[30px] grid lg:grid-cols-2">
         <PdfDropzone maxBytes={maxPdfBytes} maxPages={maxPagesPerFlipbook} planName={planName} />
 
-        <div className="flex flex-col items-center rounded-2xl border border-line bg-surface p-[26px] text-center">
-          <div className="mb-3.5 flex size-[46px] items-center justify-center rounded-xl bg-surface-alt">
-            <SquarePlus className="size-5" strokeWidth={1.6} />
+        <div className="flex items-center gap-7 border border-ink px-8 py-[30px] max-lg:border-t-0 max-sm:px-5 lg:border-l-0">
+          <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+            <h2 className="text-[13px] font-semibold">From scratch</h2>
+            <p className="font-serif text-[30px] leading-[1.08] tracking-[-0.6px]">Open a blank book in the editor.</p>
+            <p className="text-[13.5px] leading-normal text-ink-2">Text, images and shapes, with autosave and undo. Or pick a template below.</p>
+            <form action={createFlipbookAction} className="mt-1.5">
+              <OpenEditorButton />
+            </form>
           </div>
-          <h2 className="text-[15px] font-semibold">From scratch</h2>
-          <p className="mt-[7px] mb-4 max-w-[280px] text-[12.5px] leading-[1.55] text-pretty text-muted">
-            Open the canvas editor with a blank page, or start from one of the templates below.
-          </p>
-          <form action={createFlipbookAction}>
-            <OpenEditorButton />
-          </form>
-          <div className="mt-3 font-mono text-[10px] font-medium text-muted-3">CANVAS · AUTOSAVE + UNDO</div>
+          <div className="flex shrink-0 gap-px shadow-[0_8px_20px_rgba(17,17,17,.12)] max-md:hidden" aria-hidden>
+            <div className="h-[54px] w-10 bg-white shadow-[inset_0_0_0_1px_var(--color-line)]" />
+            <div className="h-[54px] w-10 bg-white shadow-[inset_0_0_0_1px_var(--color-line)]" />
+          </div>
         </div>
       </div>
 
-      <TemplateGallery templates={templatesWithCovers()} />
+      <TemplateGallery templates={templatesWithCovers()} dense className="mt-10" />
     </div>
   );
 }

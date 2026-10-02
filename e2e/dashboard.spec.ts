@@ -2,21 +2,21 @@ import { cloneFlipbook } from "./db";
 import { expect, signInAsNewUser, test } from "./fixtures";
 
 const recentTable = (page: import("@playwright/test").Page) =>
-  page.locator("section", { has: page.getByRole("heading", { name: "Recent flipbooks" }) });
+  page.locator("section", { has: page.getByRole("heading", { name: "Contents" }) });
+const rowOf = (page: import("@playwright/test").Page, title: string) => recentTable(page).locator("[data-flipbook-row]").filter({ hasText: title });
 
 // Read-only checks run as the seeded demo user; anything that writes uses a fresh account.
 
 test.describe("dashboard", () => {
-  test("shows stats and the six most recent flipbooks", async ({ page }) => {
+  test("lists every flipbook", async ({ page }) => {
     await page.goto("/dashboard");
-    await expect(page.getByText("4.8k")).toBeVisible(); // the seeded reader visits
-    await expect(recentTable(page).getByRole("button", { name: /^More actions for / })).toHaveCount(6);
+    await expect(recentTable(page).getByRole("button", { name: /^More actions for / })).toHaveCount(12);
     await expect(page.getByRole("link", { name: "Flipbooks" })).toContainText("12");
   });
 
   test("filters by type", async ({ page }) => {
     await page.goto("/dashboard");
-    await page.getByRole("button", { name: "Canvas", exact: true }).click();
+    await page.getByRole("button", { name: /^Canvas \d+$/ }).click();
     const table = recentTable(page);
     await expect(table.getByRole("button", { name: /^More actions for / })).toHaveCount(2);
     await expect(table.getByText("Brand Guidelines v4")).toBeVisible();
@@ -32,21 +32,21 @@ test.describe("dashboard", () => {
 
   test("row actions open the editor and the viewer", async ({ page }) => {
     await page.goto("/dashboard");
-    const row = recentTable(page).locator(":scope > div").filter({ hasText: "Summer Catalog 2026" });
-    await expect(row.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/dashboard/flipbooks/fb_8Kd2/editor");
+    const row = rowOf(page, "Summer Catalog 2026");
+    await expect(row.getByRole("link", { name: "Edit", exact: true })).toHaveAttribute("href", "/dashboard/flipbooks/fb_8Kd2/editor");
     await page.getByRole("link", { name: "Preview Summer Catalog 2026" }).click();
     await expect(page).toHaveURL(/\/f\/summer-catalog/);
   });
 
   test("processing and failed books can't be opened yet", async ({ page }) => {
     await page.goto("/dashboard");
-    const row = recentTable(page).locator(":scope > div").filter({ hasText: "Annual Report 2026" });
-    await expect(row.getByText("Processing")).toBeVisible();
-    await expect(row.getByRole("link", { name: "Edit" })).toHaveCount(0);
+    const row = rowOf(page, "Annual Report 2026");
+    await expect(row.getByText("Rendering")).toBeVisible();
+    await expect(row.getByRole("link", { name: "Edit", exact: true })).toHaveCount(0);
   });
 
-  test("topbar search filters the flipbook list", async ({ page }) => {
-    await page.goto("/dashboard");
+  test("search filters the flipbook list", async ({ page }) => {
+    await page.goto("/dashboard/flipbooks");
     await page.getByPlaceholder("Search flipbooks").fill("catalog");
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/dashboard\/flipbooks\?q=catalog/);
@@ -68,17 +68,17 @@ test.describe("dashboard", () => {
 
 test.describe("analytics", () => {
   test("switches ranges and highlights the drop-off page", async ({ page }) => {
-    const views = page.getByRole("group", { name: "VIEWS", exact: true });
-    const count = async () => Number((await views.textContent())!.match(/VIEWS([\d,]+)/)![1].replaceAll(",", ""));
+    const views = page.getByRole("group", { name: "Views", exact: true });
+    const count = async () => Number((await views.textContent())!.match(/Views([\d,]+)/)![1].replaceAll(",", ""));
     await page.goto("/dashboard/flipbooks/fb_8Kd2/analytics?range=all");
     // The 1,248 seeded visits, plus any signed-out reader other specs sent to this book.
     await expect.poll(count).toBeGreaterThanOrEqual(1_248);
     const allTime = await count();
-    await expect(page.getByText(/Drop-off after page \d+/)).toBeVisible();
+    await expect(page.getByText(/−\d+% after page \d+/)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Devices" })).toBeVisible();
     await expect(page.getByText("Mobile")).toBeVisible();
 
-    await page.getByRole("link", { name: "30d" }).click();
+    await page.getByRole("link", { name: "30 days" }).click();
     await expect(page).toHaveURL(/range=30d/);
     await expect.poll(count).toBeLessThan(allTime);
   });

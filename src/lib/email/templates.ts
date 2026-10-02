@@ -1,10 +1,11 @@
 import type { Email } from "./send";
 
 // Inline styles only: email clients ignore stylesheets. Colors come from the design tokens.
-const INK = "#17150F";
-const MUTED = "#6E6A5E";
-const PAPER = "#F3F1EC";
-const LINE = "#E4E0D6";
+const INK = "#111111";
+const MUTED = "#3A3A3A";
+const PAPER = "#F1F2F4";
+const LINE = "#E6E6E6";
+const ACCENT = "#2B3AE8";
 
 function escape(value: string) {
   return value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -15,14 +16,14 @@ function layout({ heading, body, cta, url, footnote }: { heading: string; body: 
 <html><body style="margin:0;background:${PAPER};font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:${INK}">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px">
     <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#fff;border:1px solid ${LINE};border-radius:16px">
-        <tr><td style="padding:32px 32px 8px;font-size:15px;font-weight:600">Flipbook</td></tr>
-        <tr><td style="padding:8px 32px 0;font-family:Georgia,serif;font-size:28px;line-height:1.15">${escape(heading)}</td></tr>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#fff;border:1px solid ${LINE}">
+        <tr><td style="padding:32px 32px 8px;font-family:Georgia,serif;font-style:italic;font-size:24px">Flipbook</td></tr>
+        <tr><td style="padding:8px 32px 0;font-family:Georgia,serif;font-size:30px;line-height:1.1">${escape(heading)}</td></tr>
         <tr><td style="padding:12px 32px 24px;font-size:14px;line-height:1.6;color:${MUTED}">${escape(body)}</td></tr>
         <tr><td style="padding:0 32px 28px">
-          <a href="${escape(url)}" style="display:inline-block;background:${INK};color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 20px;border-radius:10px">${escape(cta)}</a>
+          <a href="${escape(url)}" style="display:inline-block;background:${ACCENT};color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 22px;border-radius:22px">${escape(cta)}</a>
         </td></tr>
-        <tr><td style="padding:0 32px 32px;font-size:12px;line-height:1.5;color:#A5A091">${escape(footnote)}<br>${escape(url)}</td></tr>
+        <tr><td style="padding:0 32px 32px;font-size:12px;line-height:1.5;color:#9A9A9A">${escape(footnote)}<br>${escape(url)}</td></tr>
       </table>
     </td></tr>
   </table>

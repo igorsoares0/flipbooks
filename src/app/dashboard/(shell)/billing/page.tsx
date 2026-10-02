@@ -1,15 +1,14 @@
+import { Check } from "lucide-react";
 import type { Metadata } from "next";
 import { ActivatingPro, ManagePlan } from "@/components/billing/manage-plan";
 import { PlanPicker } from "@/components/billing/plan-picker";
 import type { PaddleClientConfig } from "@/components/billing/upgrade-button";
 import { LabeledMeter } from "@/components/ui/meter";
-import { PRO_PRICES } from "@/lib/billing/catalog";
+import { PLAN_FEATURES, PRO_PRICES } from "@/lib/billing/catalog";
 import { getBilling } from "@/lib/data";
-import { featureList } from "@/lib/entitlements";
 import { UPGRADE_MESSAGES } from "@/lib/entitlements/policy";
 import { formatCompact, formatCount, formatGb, formatLongDate } from "@/lib/format";
 import type { Billing } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Billing" };
 
@@ -37,84 +36,105 @@ export default async function BillingPage({ searchParams }: PageProps<"/dashboar
   const pastDue = subscription?.status === "PAST_DUE";
 
   const meters = [
-    {
-      label: "Flipbooks",
-      value: `${formatCount(usage.flipbooks)} / ${formatCount(ent.maxFlipbooks)}`,
-      ratio: usage.flipbooks / ent.maxFlipbooks,
-    },
+    { label: "Flipbooks", value: formatCount(usage.flipbooks), of: `of ${formatCount(ent.maxFlipbooks)}`, ratio: usage.flipbooks / ent.maxFlipbooks },
     {
       label: "Storage",
-      value: `${formatGb(usage.storageBytes)} / ${formatGb(ent.maxStorageBytes)} GB`,
+      value: formatGb(usage.storageBytes),
+      of: `of ${formatGb(ent.maxStorageBytes)} GB`,
       ratio: usage.storageBytes / ent.maxStorageBytes,
     },
     {
       label: "Views this month",
-      value: `${formatCompact(usage.monthlyViews)} / ${formatCompact(ent.maxMonthlyViews)}`,
+      value: formatCompact(usage.monthlyViews),
+      of: `of ${formatCompact(ent.maxMonthlyViews)}`,
       ratio: usage.monthlyViews / ent.maxMonthlyViews,
       // A soft limit: readers are never turned away, so going over is only flagged.
       barClassName: usage.monthlyViews > ent.maxMonthlyViews ? "bg-warning" : undefined,
     },
   ];
+  const usageLine = [
+    `${formatCount(usage.flipbooks)} of ${formatCount(ent.maxFlipbooks)} flipbooks`,
+    `${formatGb(usage.storageBytes)} of ${formatGb(ent.maxStorageBytes)} GB`,
+    `${formatCompact(usage.monthlyViews)} of ${formatCompact(ent.maxMonthlyViews)} views this month`,
+  ].join(" · ");
+  const interval = plan === "PRO" && subscription?.managedByPaddle ? subscription.interval : null;
 
   return (
-    <div className="mx-auto flex max-w-[900px] flex-col gap-[18px]">
+    <div className="flex max-w-[1180px] flex-col gap-10">
       <ActivatingPro active={checkout === "success" && plan === "FREE"} />
       {upgradeMessage && plan === "FREE" && (
-        <p role="status" className="rounded-xl border border-accent/25 bg-accent-soft px-4 py-3 text-[13px] text-accent">
+        <p role="status" className="bg-accent-tint px-4 py-3 text-[13.5px] text-accent">
           <span className="font-semibold">{upgradeMessage}</span> Pick a plan below.
         </p>
       )}
       {pastDue && (
-        <p role="alert" className="rounded-xl border border-danger-line bg-danger-tint px-4 py-3 text-[13px] text-danger">
-          <span className="font-semibold">Your last payment didn&apos;t go through.</span> Pro stays on while Paddle retries. Update your
+        <p role="alert" className="bg-danger-bg px-4 py-3 text-[13.5px] text-danger-ink">
+          <span className="font-bold">Your last payment didn&apos;t go through.</span> Pro stays on while Paddle retries. Update your
           payment method under Manage subscription.
         </p>
       )}
 
-      <section className="flex flex-wrap items-center gap-6 rounded-[18px] bg-ink px-[30px] py-7 text-on-dark">
-        <div className="min-w-[min(260px,100%)] flex-1">
-          <div className="label-mono tracking-[.1em] text-on-dark-dim-2">CURRENT PLAN</div>
-          <h1 className="mt-2.5 mb-2 font-serif text-[40px] leading-[1.05] tracking-[-1px]">{plan === "PRO" ? "Pro" : "Free"}</h1>
-          <p className="max-w-[440px] text-[13px] leading-[1.55] text-pretty text-on-dark-dim">{planSummary(billing)}</p>
-        </div>
-        {plan === "PRO" && subscription?.managedByPaddle && (
-          <ManagePlan interval={subscription.interval} canSwitch={!subscription.cancelAtPeriodEnd && !pastDue} />
-        )}
-      </section>
+      {plan === "FREE" ? (
+        <PlanPicker
+          mode="billing"
+          paddle={paddleClientConfig()}
+          header={
+            <div className="flex flex-col gap-2.5">
+              <span className="text-[13px] font-semibold text-accent">Current plan</span>
+              <h1 className="font-serif text-[52px] leading-[.95] tracking-[-1.6px] md:text-[64px] md:tracking-[-2px]">Free</h1>
+              <p className="text-[15px] text-ink-2">{usageLine}</p>
+            </div>
+          }
+        />
+      ) : (
+        <>
+          <section className="flex flex-wrap items-end gap-6 border-b border-ink pb-9">
+            <div className="flex min-w-0 flex-col gap-2.5">
+              <span className="text-[13px] font-semibold text-accent">Current plan</span>
+              <h1 className="font-serif text-[52px] leading-[.95] tracking-[-1.6px] md:text-[72px] md:tracking-[-2.4px]">
+                Pro{interval && <em>, {interval === "YEAR" ? "yearly" : "monthly"}</em>}
+              </h1>
+              <p className="max-w-[520px] text-[15px] text-pretty text-ink-2">{planSummary(billing)}</p>
+            </div>
+            {subscription?.managedByPaddle && (
+              <div className="ml-auto">
+                <ManagePlan interval={subscription.interval} canSwitch={!subscription.cancelAtPeriodEnd && !pastDue} />
+              </div>
+            )}
+          </section>
 
-      {plan === "FREE" && (
-        <section aria-labelledby="upgrade-heading" className="flex flex-col gap-4">
-          <h2 id="upgrade-heading" className="text-[13.5px] font-semibold">
-            Upgrade to Pro
-          </h2>
-          <PlanPicker mode="billing" paddle={paddleClientConfig()} />
-        </section>
+          <section aria-labelledby="usage-heading" className="flex flex-col gap-[18px]">
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              <h2 id="usage-heading" className="font-serif text-[30px] leading-none tracking-[-0.8px]">
+                Usage
+              </h2>
+              <span className="text-[13px] text-muted">Views are counted, never blocked.</span>
+            </div>
+            <div className="grid gap-10 sm:grid-cols-3">
+              {meters.map((m) => (
+                <div key={m.label} className="border-t border-ink pt-3">
+                  <LabeledMeter {...m} />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section aria-labelledby="included-heading" className="flex flex-col gap-3.5">
+            <h2 id="included-heading" className="font-serif text-[30px] leading-none tracking-[-0.8px]">
+              Included
+            </h2>
+            <ul className="grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
+              {PLAN_FEATURES.PRO.filter((f) => f !== "Everything in Free").map((f) => (
+                <li key={f} className="flex items-center gap-2.5 border-b border-line py-[11px] text-sm">
+                  <Check className="size-4 shrink-0" strokeWidth={1.8} />
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </section>
+          <p className="text-[12.5px] text-muted">Payments, taxes and receipts are handled by Paddle.</p>
+        </>
       )}
-
-      <section className="rounded-2xl border border-line bg-surface px-[22px] py-5">
-        <h2 className="mb-1 text-[13.5px] font-semibold">Usage</h2>
-        <p className="mb-4 text-xs text-muted-2">Limits are enforced when you create or upload. Views are counted but never blocked.</p>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-4">
-          {meters.map((m) => (
-            <LabeledMeter key={m.label} {...m} />
-          ))}
-        </div>
-        <div className="mt-5 flex flex-wrap gap-2">
-          {featureList(ent).map((f) => (
-            <span
-              key={f.label}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-[20px] border border-line bg-surface-sunken px-[11px] py-[5px] text-[11.5px] whitespace-nowrap",
-                !f.enabled && "text-muted-3",
-              )}
-            >
-              <span className={cn("size-[5px] rounded-full", f.enabled ? "bg-success" : "bg-line-strong")} />
-              {f.label}
-              {!f.enabled && <span className="sr-only"> (not included)</span>}
-            </span>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }

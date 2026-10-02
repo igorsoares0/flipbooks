@@ -2,29 +2,35 @@ import Link from "next/link";
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
+// Hover darkens the fill by about 6%.
 const variants = {
-  primary: "bg-ink text-white hover:bg-ink-2",
-  accent: "bg-accent text-white hover:bg-accent-hover",
-  secondary: "border border-line bg-surface text-ink hover:border-ink",
-  danger: "border border-danger-line bg-surface text-danger hover:bg-danger-tint",
-  outline: "border border-line-strong bg-transparent text-ink hover:border-ink",
+  primary: "bg-accent text-white hover:bg-accent-hover",
+  dark: "bg-ink text-white hover:bg-[color-mix(in_oklch,#111,black_6%)]",
+  outline: "border border-ink bg-surface text-ink hover:bg-hover",
+  /** Quiet outline for secondary utilities (Google sign-in, row actions). */
+  secondary: "border border-line-2 bg-surface text-ink hover:border-ink",
+  danger: "border border-danger-line bg-surface text-danger hover:bg-danger-bg",
+  /** Reader chrome. */
   light: "bg-on-dark text-ink hover:bg-white",
-  "dark-outline": "border border-line-dark bg-transparent text-on-dark-dim hover:border-on-dark hover:text-on-dark",
+  ghost: "border border-line-dark bg-transparent text-on-dark hover:border-on-dark-dim",
+  /** White pill on the solid accent Pro column. */
+  inverse: "bg-white text-accent hover:bg-[color-mix(in_oklch,white,black_6%)]",
 } as const;
 
+// Pills: the radius is always half the height.
 const sizes = {
-  xs: "rounded-[7px] px-[11px] py-1.5 text-[11.5px]",
-  sm: "rounded-lg px-3.5 py-2 text-[12.5px]",
-  md: "rounded-[9px] px-[15px] py-[9px] text-[12.5px]",
-  lg: "rounded-[10px] px-[22px] py-[13px] text-sm",
-  icon: "size-[30px] rounded-lg",
+  xs: "h-[30px] rounded-full px-3 text-[12.5px]",
+  sm: "h-9 rounded-full px-4 text-[13px]",
+  md: "h-10 rounded-full px-[18px] text-[13.5px]",
+  lg: "h-12 rounded-full px-5 text-[14.5px]",
+  icon: "size-[34px] rounded-full",
 } as const;
 
 export type ButtonVariant = keyof typeof variants;
 export type ButtonSize = keyof typeof sizes;
 
 export function buttonClasses({
-  variant = "primary",
+  variant = "dark",
   size = "md",
   className,
 }: {
@@ -33,7 +39,7 @@ export function buttonClasses({
   className?: string;
 }) {
   return cn(
-    "inline-flex shrink-0 items-center justify-center gap-[7px] font-semibold leading-[1.3] whitespace-nowrap transition-none",
+    "inline-flex shrink-0 items-center justify-center gap-2 font-semibold leading-none whitespace-nowrap",
     "disabled:cursor-not-allowed disabled:opacity-40 aria-disabled:pointer-events-none aria-disabled:opacity-40",
     variants[variant],
     sizes[size],

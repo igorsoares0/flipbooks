@@ -9,7 +9,7 @@ test.describe("billing", () => {
   test("the free plan sees Pro and is told when checkout isn't set up", async ({ page }) => {
     await signInAsNewUser(page, { plan: "FREE" });
     await page.goto("/dashboard/billing");
-    await expect(page.getByRole("heading", { name: "Free", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Free", exact: true, level: 1 })).toBeVisible();
     await expect(page.getByTestId("pro-price")).toHaveText("$15");
     await page.getByRole("button", { name: /Upgrade to Pro · \$180\/year/ }).click();
     await expect(page.getByText("Billing isn't set up on this server yet.")).toBeVisible();
@@ -25,12 +25,12 @@ test.describe("billing", () => {
     expect(created.status()).toBe(200);
 
     await page.goto("/dashboard/billing");
-    await expect(page.getByRole("heading", { name: "Pro", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Pro(, yearly)?$/ })).toBeVisible();
     await expect(page.getByText(/\$180 a year\. Renews on Sep 19, 2027\./)).toBeVisible();
     await expect(page.getByRole("button", { name: "Manage subscription" })).toBeVisible();
-    await expect(page.getByText("PRO", { exact: true })).toBeVisible(); // sidebar badge
+    await expect(page.getByText("Pro plan", { exact: true })).toBeVisible(); // sidebar user row
     await page.goto(`/f/${book.slug}`);
-    await expect(page.getByText("Powered by Flipbook")).toHaveCount(0);
+    await expect(page.getByText("Made with Flipbook")).toHaveCount(0);
 
     // Cancelled in Paddle's portal: Pro until the period ends…
     const cancelLater = { ...sub, scheduled_change: { action: "cancel", effective_at: "2027-09-19T12:00:00Z" } };
@@ -41,9 +41,9 @@ test.describe("billing", () => {
     // …then the account is back on Free, and the badge returns.
     await page.request.post("/api/paddle/webhook", paddleNotification("subscription.canceled", { ...cancelLater, status: "canceled" }));
     await page.goto("/dashboard/billing");
-    await expect(page.getByRole("heading", { name: "Free", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Free", exact: true, level: 1 })).toBeVisible();
     await page.goto(`/f/${book.slug}`);
-    await expect(page.getByText("Powered by Flipbook")).toBeVisible();
+    await expect(page.getByText("Made with Flipbook")).toBeVisible();
   });
 
   test("forged webhooks are refused", async ({ page }) => {
@@ -52,7 +52,7 @@ test.describe("billing", () => {
     const response = await page.request.post("/api/paddle/webhook", { ...forged, headers: { ...forged.headers, "paddle-signature": "ts=1;h1=00" } });
     expect(response.status()).toBe(401);
     await page.goto("/dashboard/billing");
-    await expect(page.getByRole("heading", { name: "Free", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Free", exact: true, level: 1 })).toBeVisible();
   });
 });
 
@@ -78,7 +78,7 @@ test.describe("reader analytics", () => {
     await reader.close({ runBeforeUnload: true });
 
     await page.goto(`/dashboard/flipbooks/${book.id}/analytics`);
-    await expect(page.getByRole("group", { name: "VIEWS", exact: true })).toContainText(/VIEWS1(?![\d,])/);
+    await expect(page.getByRole("group", { name: "Views", exact: true })).toContainText(/Views1(?![\d,])/);
     await expect(page.getByText("Desktop")).toBeVisible();
   });
 });

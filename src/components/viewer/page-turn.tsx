@@ -243,7 +243,7 @@ export function PageTurn({
         data-testid="book"
         // Not clipped: a page swinging over sweeps outside the book, the way paper does. The
         // reader area around it does the clipping.
-        className="relative flex max-w-full drop-shadow-[0_24px_70px_rgba(0,0,0,.55)]"
+        className="relative flex max-w-full drop-shadow-[0_30px_80px_rgba(0,0,0,.55)]"
         style={
           {
             aspectRatio: ratio,

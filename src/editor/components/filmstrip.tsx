@@ -37,6 +37,7 @@ function PageMenu({ menu, onClose }: { menu: Menu; onClose: () => void }) {
   };
   const items: { label: string; action: () => void; disabled?: boolean; danger?: boolean }[] = [
     { label: "Duplicate page", action: () => store.getState().duplicateSelection(), disabled: pages.length >= store.getState().maxPages },
+    { label: "Add page after", action: () => store.getState().addPage(), disabled: pages.length >= store.getState().maxPages },
     { label: "Move left", action: () => store.getState().reorderPage(index, index - 1), disabled: index === 0 },
     { label: "Move right", action: () => store.getState().reorderPage(index, index + 1), disabled: index === pages.length - 1 },
     { label: "Delete page", action: () => store.getState().deleteSelection(), disabled: pages.length === 1, danger: true },
@@ -47,7 +48,7 @@ function PageMenu({ menu, onClose }: { menu: Menu; onClose: () => void }) {
       ref={ref}
       role="menu"
       aria-label={`Page ${index + 1} actions`}
-      className="fixed z-50 min-w-[160px] rounded-[10px] border border-line bg-surface p-1 shadow-canvas"
+      className="fixed z-50 w-[200px] bg-surface p-1 shadow-menu"
       style={{ left: menu.x, top: menu.y, transform: "translateY(-100%)" }}
       onKeyDown={(e) => {
         if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
@@ -58,18 +59,20 @@ function PageMenu({ menu, onClose }: { menu: Menu; onClose: () => void }) {
       }}
     >
       {items.map((item) => (
-        <button
-          key={item.label}
-          role="menuitem"
-          disabled={item.disabled}
-          onClick={run(item.action)}
-          className={cn(
-            "block w-full rounded-md px-2.5 py-1.5 text-left text-[12.5px] hover:bg-surface-sunken focus-visible:bg-surface-sunken focus-visible:outline-none disabled:text-muted-3 disabled:hover:bg-transparent",
-            item.danger && "text-danger",
-          )}
-        >
-          {item.label}
-        </button>
+        <div key={item.label}>
+          {item.danger && <div className="mx-1 my-1 h-px bg-line" role="separator" />}
+          <button
+            role="menuitem"
+            disabled={item.disabled}
+            onClick={run(item.action)}
+            className={cn(
+              "flex h-9 w-full items-center rounded-md px-2.5 text-left text-[13.5px] hover:bg-hover focus-visible:bg-hover focus-visible:outline-none disabled:text-faint disabled:hover:bg-transparent",
+              item.danger && "text-danger",
+            )}
+          >
+            {item.label}
+          </button>
+        </div>
       ))}
     </div>
   );
@@ -130,7 +133,7 @@ export function Filmstrip() {
   return (
     <div
       ref={listRef}
-      className="relative flex h-[104px] shrink-0 items-center gap-2.5 overflow-x-auto border-t border-line bg-surface px-4"
+      className="relative flex h-[118px] shrink-0 items-center gap-2.5 overflow-x-auto border-t border-line bg-surface px-5"
       aria-label="Pages"
     >
       {pages.map((page, index) => {
@@ -163,17 +166,17 @@ export function Filmstrip() {
             aria-current={active ? "page" : undefined}
             aria-haspopup="menu"
             title="Drag to reorder · right-click for more"
-            className={cn("shrink-0 text-center", drag?.from === index && "opacity-40")}
+            className={cn("flex shrink-0 flex-col items-center gap-1.5 focus-visible:outline-none", drag?.from === index && "opacity-40")}
           >
             <PageCanvas
               page={page}
               className={cn(
-                "pointer-events-none w-[54px] rounded-[3px] shadow-thumb",
-                active ? "outline-2 -outline-offset-2 outline-accent" : "outline-1 -outline-offset-1 outline-line",
+                "pointer-events-none w-12",
+                active ? "shadow-[0_0_0_2px_var(--color-accent)]" : "shadow-[inset_0_0_0_1px_var(--color-line)]",
+                "[button:focus-visible>&]:outline-2 [button:focus-visible>&]:outline-offset-2 [button:focus-visible>&]:outline-accent",
               )}
-              style={{ outlineStyle: "solid" }}
             />
-            <div className="mt-1 font-mono text-[9.5px] font-medium text-muted-2">{page.pageNumber}</div>
+            <span className={cn("text-[11.5px] tabular-nums", active ? "font-bold text-accent" : "font-medium text-muted")}>{page.pageNumber}</span>
           </button>
         );
       })}
@@ -182,14 +185,17 @@ export function Filmstrip() {
         disabled={atLimit}
         title={atLimit ? `Your plan allows ${maxPages} pages per flipbook` : undefined}
         aria-label="Add page"
-        className="mb-[18px] flex h-[70px] w-[54px] shrink-0 items-center justify-center rounded border-[1.5px] border-dashed border-line-strong bg-surface-sunken text-muted-2 enabled:hover:border-accent enabled:hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+        className="group flex shrink-0 flex-col items-center gap-1.5 text-muted disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <Plus className="size-5" strokeWidth={1.4} />
+        <span className="flex h-16 w-12 items-center justify-center border-[1.5px] border-dashed border-placeholder group-enabled:group-hover:border-accent group-enabled:group-hover:text-accent">
+          <Plus className="size-[18px]" strokeWidth={1.4} />
+        </span>
+        <span className="text-[11.5px]">Add</span>
       </button>
       {drag && (
         <div
           data-testid="page-drop-indicator"
-          className="pointer-events-none absolute top-3 h-[72px] w-0.5 rounded-full bg-accent"
+          className="pointer-events-none absolute top-[18px] h-16 w-0.5 bg-accent"
           style={{ left: drag.indicatorX }}
         />
       )}

@@ -1,40 +1,31 @@
 import type { FlipbookStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const STATUS: Record<FlipbookStatus, { label: string; className: string }> = {
-  UPLOADING: { label: "Uploading", className: "bg-warning-soft text-warning-ink" },
-  PUBLISHED: { label: "Published", className: "bg-success-soft text-success" },
-  DRAFT: { label: "Draft", className: "bg-surface-alt text-muted" },
-  PROCESSING: { label: "Processing", className: "bg-warning-soft text-warning-ink" },
-  READY: { label: "Ready", className: "bg-accent-soft text-accent" },
-  FAILED: { label: "Failed", className: "bg-danger-soft text-danger" },
-  ARCHIVED: { label: "Archived", className: "bg-surface-alt text-muted-2" },
+const STATUS: Record<FlipbookStatus, { label: string; dot: string }> = {
+  UPLOADING: { label: "Uploading", dot: "bg-warning" },
+  PUBLISHED: { label: "Live", dot: "bg-success" },
+  DRAFT: { label: "Draft", dot: "bg-placeholder" },
+  PROCESSING: { label: "Rendering", dot: "bg-warning" },
+  READY: { label: "Ready", dot: "bg-accent" },
+  FAILED: { label: "Failed", dot: "bg-danger" },
+  ARCHIVED: { label: "Archived", dot: "bg-line-2" },
 };
 
+/** Status is a 7px dot and a label, never a filled badge. */
 export function StatusBadge({ status }: { status: FlipbookStatus }) {
-  const { label, className } = STATUS[status];
+  const { label, dot } = STATUS[status];
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-[20px] px-[9px] py-[3px] text-[11px] font-semibold whitespace-nowrap",
-        className,
-      )}
-    >
-      <span className="size-[5px] rounded-full bg-current" />
+    <span className={cn("inline-flex items-center gap-2 text-[13px] whitespace-nowrap", status === "FAILED" ? "text-danger" : "text-ink")}>
+      <span className={cn("size-[7px] shrink-0 rounded-full", dot)} />
       {label}
     </span>
   );
 }
 
-/** Mono outlined tag: PDF, CANVAS, TEXT, IMAGE… */
+/** Type tag: PDF, Canvas, Text, Image… */
 export function TypeBadge({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <span
-      className={cn(
-        "shrink-0 rounded border border-line px-[5px] py-[1.5px] font-mono text-[9.5px] font-medium text-muted",
-        className,
-      )}
-    >
+    <span className={cn("shrink-0 rounded-[10px] bg-canvas px-[9px] py-[3px] text-[11.5px] leading-[1.3] font-semibold text-ink-2", className)}>
       {children}
     </span>
   );

@@ -7,10 +7,11 @@ import { cn } from "@/lib/utils";
 // container-query units, so the same page renders identically in the editor
 // artboard, the viewer spread and tiny thumbnails (spec §20).
 
+// Page typefaces are loaded apart from the UI fonts (src/app/layout.tsx).
 const FONT_FAMILY = {
-  sans: "var(--font-sans)",
-  serif: "var(--font-serif)",
-  mono: "var(--font-mono)",
+  sans: "var(--font-page-sans), system-ui, sans-serif",
+  serif: "var(--font-page-serif), Georgia, serif",
+  mono: "var(--font-page-mono), ui-monospace, monospace",
 } as const;
 
 export const FONT_LABEL = {
@@ -85,7 +86,7 @@ function ImageContent({ element, page }: { element: ImageElement; page: Page }) 
   if (assetKey) {
     return (
       <div className="flex size-full items-center justify-center bg-[repeating-linear-gradient(45deg,#EEEBE3_0_8px,#E6E2D8_8px_16px)]">
-        <span className="font-mono text-[rgba(23,21,15,.45)] @max-[160px]:hidden" style={{ fontSize: `max(6px, ${scaled(11, page)})` }}>
+        <span className="text-[rgba(23,21,15,.45)] @max-[160px]:hidden" style={{ fontFamily: FONT_FAMILY.mono, fontSize: `max(6px, ${scaled(11, page)})` }}>
           Image missing
         </span>
       </div>
@@ -102,8 +103,8 @@ function ImageContent({ element, page }: { element: ImageElement; page: Page }) 
     >
       {/* Hidden on thumbnail-sized pages, where it would only be noise. */}
       <span
-        className="font-mono font-medium text-[rgba(23,21,15,.45)] @max-[160px]:hidden"
-        style={{ fontSize: `max(6px, ${scaled(11, page)})` }}
+        className="font-medium text-[rgba(23,21,15,.45)] @max-[160px]:hidden"
+        style={{ fontFamily: FONT_FAMILY.mono, fontSize: `max(6px, ${scaled(11, page)})` }}
       >
         {placeholder.label}
       </span>

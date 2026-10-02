@@ -66,8 +66,8 @@ function useHydrated() {
   return useSyncExternalStore(noopSubscribe, () => true, () => false);
 }
 
-const inputClass =
-  "w-full rounded-[10px] border border-line bg-surface px-3 py-[11px] text-[13px] outline-none placeholder:text-muted-3 focus:border-ink aria-invalid:border-danger";
+const inputClass = "input-line aria-invalid:border-danger";
+const labelText = "text-[13px] font-semibold";
 
 function GoogleMark() {
   return (
@@ -150,117 +150,116 @@ export function AuthForm({
   };
 
   return (
-    <div className="w-full max-w-[360px]">
-      <Link href="/" className="mb-[34px] inline-flex text-ink hover:text-ink">
+    <div className="flex min-h-full w-full flex-col gap-10">
+      <Link href="/" className="self-start text-ink hover:text-ink" aria-label="Flipbook home">
         <Logo />
       </Link>
 
-      <h1 className="mb-2 font-serif text-[34px] leading-[1.1] tracking-[-0.7px]">{sentTo ? "Check your inbox" : copy.title}</h1>
-      <p className="mb-6 text-[13px] leading-[1.55] text-pretty text-muted">
-        {sentTo
-          ? `If an account exists for ${sentTo}, a reset link is on its way. It expires in 30 minutes.`
-          : copy.sub}
-      </p>
+      <div className="my-auto flex w-full max-w-[380px] flex-col gap-[22px]">
+        <div className="flex flex-col gap-2.5">
+          <h1 className="font-serif text-[44px] leading-none tracking-[-1.4px] md:text-[52px] md:tracking-[-1.6px]">{sentTo ? "Check your inbox" : copy.title}</h1>
+          <p className="text-[15px] leading-normal text-pretty text-ink-2">
+            {sentTo ? `If an account exists for ${sentTo}, a reset link is on its way. It expires in 30 minutes.` : copy.sub}
+          </p>
+        </div>
 
-      {notice && !sentTo && (
-        <p role="status" className="mb-5 rounded-[10px] border border-success/30 bg-success-soft px-3 py-2.5 text-[12.5px] text-success">
-          {notice}
-        </p>
-      )}
+        {notice && !sentTo && (
+          <p role="status" className="border-l-2 border-success py-1 pl-3 text-[13.5px] text-success">
+            {notice}
+          </p>
+        )}
 
-      {mode === "reset" && !token && (
-        <p role="alert" className="mb-5 text-[12.5px] text-danger">
-          This reset link is incomplete. Open the link from the email again, or request a new one.
-        </p>
-      )}
+        {mode === "reset" && !token && (
+          <p role="alert" className="text-[13.5px] text-danger">
+            This reset link is incomplete. Open the link from the email again, or request a new one.
+          </p>
+        )}
 
-      {googleEnabled && (mode === "login" || mode === "register") && (
-        <>
-          <Button variant="secondary" className="w-full rounded-[10px] p-[11px] text-[13px]" onClick={google} disabled={pending}>
-            <GoogleMark />
-            Continue with Google
-          </Button>
-          <div className="my-[18px] flex items-center gap-3">
-            <div className="h-px flex-1 bg-line" />
-            <span className="font-mono text-[10px] font-medium text-muted-3">OR</span>
-            <div className="h-px flex-1 bg-line" />
-          </div>
-        </>
-      )}
-
-      {/* method="post": if JS ever fails to load, a native submit must not put the password in the URL. */}
-      {!sentTo && (
-        <form method="post" className="flex flex-col gap-3" onSubmit={submit}>
-          {mode === "register" && (
-            <label className="block">
-              <div className="mb-1.5 text-[11.5px] font-semibold">Name</div>
-              <input name="name" autoComplete="name" required maxLength={80} placeholder="Marina Rocha" className={inputClass} />
-            </label>
-          )}
-          {mode !== "reset" && (
-            <label className="block">
-              <div className="mb-1.5 text-[11.5px] font-semibold">Email</div>
-              <input
-                name="email"
-                type="email"
-                autoComplete="email"
-                autoFocus
-                required
-                placeholder="you@studio.co"
-                aria-invalid={Boolean(error) || undefined}
-                className={inputClass}
-              />
-            </label>
-          )}
-          {mode !== "forgot" && (
-            <div>
-              <div className="mb-1.5 flex items-baseline gap-2">
-                <label htmlFor="password" className="text-[11.5px] font-semibold">
-                  {mode === "reset" ? "New password" : "Password"}
-                </label>
-                {mode === "login" && (
-                  <Link href="/forgot-password" className="ml-auto text-[11.5px] text-accent hover:text-accent-hover">
-                    Forgot?
-                  </Link>
-                )}
-              </div>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
-                autoFocus={mode === "reset"}
-                required
-                minLength={8}
-                maxLength={128}
-                placeholder="••••••••••"
-                aria-invalid={Boolean(error) || undefined}
-                className={inputClass}
-              />
+        {googleEnabled && (mode === "login" || mode === "register") && (
+          <>
+            <Button variant="secondary" className="h-[46px] w-full text-sm" onClick={google} disabled={pending}>
+              <GoogleMark />
+              Continue with Google
+            </Button>
+            <div className="flex items-center gap-3 text-[12.5px] text-faint">
+              <div className="h-px flex-1 bg-line" />
+              or
+              <div className="h-px flex-1 bg-line" />
             </div>
-          )}
-          {error && (
-            <p role="alert" className="text-[12.5px] leading-normal text-danger">
-              {error}
-            </p>
-          )}
-          <Button
-            type="submit"
-            className="mt-1 w-full rounded-[10px] p-3 text-[13px]"
-            disabled={!hydrated || pending || (mode === "reset" && !token)}
-          >
-            {pending ? "One moment…" : copy.cta}
-          </Button>
-        </form>
-      )}
+          </>
+        )}
 
-      <div className="mt-5 flex flex-wrap items-baseline gap-1 text-[12.5px] text-muted">
-        <span>{copy.switchText}</span>
-        <Link href={copy.switchHref} className="font-semibold whitespace-nowrap text-accent hover:text-accent-hover">
-          {copy.switchCta}
-        </Link>
+        {/* method="post": if JS ever fails to load, a native submit must not put the password in the URL. */}
+        {!sentTo && (
+          <form method="post" className="flex flex-col gap-[22px]" onSubmit={submit}>
+            {mode === "register" && (
+              <label className="flex flex-col gap-1.5">
+                <span className={labelText}>Name</span>
+                <input name="name" autoComplete="name" required maxLength={80} placeholder="Marina Rocha" className={inputClass} />
+              </label>
+            )}
+            {mode !== "reset" && (
+              <label className="flex flex-col gap-1.5">
+                <span className={labelText}>Email</span>
+                <input
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  autoFocus
+                  required
+                  placeholder="you@studio.co"
+                  aria-invalid={Boolean(error) || undefined}
+                  className={inputClass}
+                />
+              </label>
+            )}
+            {mode !== "forgot" && (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <label htmlFor="password" className={labelText}>
+                    {mode === "reset" ? "New password" : "Password"}
+                  </label>
+                  {mode === "login" && (
+                    <Link href="/forgot-password" className="text-[13px] text-accent hover:text-ink">
+                      Forgot?
+                    </Link>
+                  )}
+                </div>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete={mode === "login" ? "current-password" : "new-password"}
+                  autoFocus={mode === "reset"}
+                  required
+                  minLength={8}
+                  maxLength={128}
+                  placeholder="••••••••••"
+                  aria-invalid={Boolean(error) || undefined}
+                  className={inputClass}
+                />
+              </div>
+            )}
+            {error && (
+              <p role="alert" className="-mt-2 text-[13.5px] leading-normal text-danger">
+                {error}
+              </p>
+            )}
+            <Button type="submit" size="lg" className="mt-1.5 w-full" disabled={!hydrated || pending || (mode === "reset" && !token)}>
+              {pending ? "One moment…" : copy.cta}
+            </Button>
+          </form>
+        )}
+
+        <div className="flex flex-wrap items-baseline gap-1 text-[13.5px] text-ink-2">
+          <span>{copy.switchText}</span>
+          <Link href={copy.switchHref} className="font-semibold whitespace-nowrap text-accent hover:text-ink">
+            {copy.switchCta}
+          </Link>
+        </div>
       </div>
-      <p className="mt-[26px] text-[11px] leading-normal text-muted-3">
+
+      <p className="text-xs leading-normal text-faint">
         By continuing you agree to the{" "}
         <Link href="/terms" className="underline underline-offset-2 hover:text-muted">
           Terms

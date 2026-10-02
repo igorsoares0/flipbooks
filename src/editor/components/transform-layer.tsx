@@ -147,9 +147,9 @@ export function TransformLayer({
                   aria-valuenow={Math.round(element.width)}
                   data-handle={handle}
                   className={cn(
-                    "pointer-events-auto absolute size-[9px] -translate-1/2 touch-none border-[1.5px] border-accent bg-white",
-                    handle.length === 1 && (handle === "n" || handle === "s") && "h-[7px] w-[14px] rounded-full",
-                    handle.length === 1 && (handle === "e" || handle === "w") && "h-[14px] w-[7px] rounded-full",
+                    "pointer-events-auto absolute size-2 -translate-1/2 touch-none bg-accent",
+                    handle.length === 1 && (handle === "n" || handle === "s") && "h-[5px] w-3.5",
+                    handle.length === 1 && (handle === "e" || handle === "w") && "h-3.5 w-[5px]",
                     HANDLE_POSITION[handle],
                   )}
                   onPointerDown={(e) => startResize(e, element, handle)}
@@ -173,7 +173,7 @@ export function TransformLayer({
           )}
           {single === element && readout && (
             <span
-              className="absolute top-full left-1/2 mt-2 -translate-x-1/2 rounded-sm bg-ink px-1.5 py-0.5 font-mono text-[10px] whitespace-nowrap text-white"
+              className="absolute top-full left-1/2 mt-2 -translate-x-1/2 rounded-full bg-ink px-2 py-0.5 text-[11px] whitespace-nowrap text-white tabular-nums"
               style={{ transform: element.rotation ? `translateX(-50%) rotate(${-element.rotation}deg)` : undefined }}
             >
               {readout}

@@ -23,19 +23,21 @@ export function ManagePlan({ interval, canSwitch }: { interval: BillingInterval 
     });
 
   return (
-    <div className="flex flex-col gap-2">
-      <form action={openCustomerPortal}>
-        <Button type="submit" variant="light" className="w-full px-[18px] py-2.5 text-[13px]">
-          Manage subscription
-        </Button>
-      </form>
-      {canSwitch && interval && (
-        <Button variant="dark-outline" className="px-[18px] py-2.5 text-[13px]" onClick={switchTo} disabled={pending}>
-          {pending ? "Switching…" : target === "YEAR" ? `Switch to yearly · $${PRO_PRICES.YEAR.amount}/year` : "Switch to monthly"}
-        </Button>
-      )}
+    <div className="flex flex-col items-end gap-2">
+      <div className="flex flex-wrap gap-2.5">
+        {canSwitch && interval && (
+          <Button variant="outline" onClick={switchTo} disabled={pending}>
+            {pending ? "Switching…" : target === "YEAR" ? `Switch to yearly · $${PRO_PRICES.YEAR.amount}/year` : "Switch to monthly"}
+          </Button>
+        )}
+        <form action={openCustomerPortal}>
+          <Button type="submit" variant="primary" className="px-5">
+            Manage subscription
+          </Button>
+        </form>
+      </div>
       {error && (
-        <p role="alert" className="text-[12px] text-[#F5A9A1]">
+        <p role="alert" className="text-[12.5px] text-danger">
           {error}
         </p>
       )}
@@ -62,7 +64,7 @@ export function ActivatingPro({ active }: { active: boolean }) {
 
   if (!active) return null;
   return (
-    <p role="status" className="rounded-xl border border-accent/25 bg-accent-soft px-4 py-3 text-[13px] text-accent">
+    <p role="status" className="bg-accent-tint px-4 py-3 text-[13.5px] text-accent">
       {timedOut ? (
         <>
           <span className="font-semibold">Payment received.</span> Your plan is taking longer than usual to update. Refresh in a
