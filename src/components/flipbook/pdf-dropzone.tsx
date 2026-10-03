@@ -62,7 +62,7 @@ export function PdfDropzone({ maxBytes, maxPages, planName }: { maxBytes: number
     setState({ step: "finishing", filename: file.name });
     const finished = await finishPdfUpload(started.flipbookId);
     if (!finished.ok) return setState({ step: "error", message: `We couldn't use that file: ${finished.error}.` });
-    router.push("/dashboard/flipbooks");
+    router.push("/dashboard");
   };
 
   const cancel = async () => {

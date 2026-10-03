@@ -89,7 +89,7 @@ The canvas editor renders pages with HTML, not Konva as the spec first suggested
 
 Page text uses its own typefaces (Instrument Sans, Instrument Serif, JetBrains Mono, loaded as `--font-page-*` in `src/app/layout.tsx`), separate from the app's UI fonts (Schibsted Grotesk and Newsreader). A redesign of the app never reflows pages people have already made.
 
-Pictures come from the user's library (`/dashboard/assets`). The browser uploads them straight to storage (to the incoming copy of a key under `assets/{userId}/`). The server then checks the key's owner, the real file type from its first bytes, the size and the pixel dimensions. Autosave refuses any picture that isn't in the caller's own library.
+Pictures come from the user's library, managed in the editor's Uploads panel (upload, place, delete). The browser uploads them straight to storage (to the incoming copy of a key under `assets/{userId}/`). The server then checks the key's owner, the real file type from its first bytes, the size and the pixel dimensions. Autosave refuses any picture outside the caller's own `assets/{userId}/` folder. A picture the user deleted still saves and renders "Image missing".
 
 Keyboard shortcuts:
 

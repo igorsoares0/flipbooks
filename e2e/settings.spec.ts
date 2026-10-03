@@ -128,8 +128,8 @@ test.describe("flipbook settings (saving)", () => {
     const book = await ownCopy(page);
     await page.getByRole("button", { name: "Delete", exact: true }).click();
     await page.getByRole("button", { name: "Confirm delete" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/flipbooks$/);
-    await expect(page.getByText("No flipbooks yet")).toBeVisible();
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByRole("heading", { name: "Your first issue starts here." })).toBeVisible();
     expect(await getFlipbookRow(book.id)).toBeNull();
   });
 });

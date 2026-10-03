@@ -8,9 +8,11 @@ const baseURL = `http://localhost:${PORT}`;
 // Tests run against the production build by default, as the Next.js docs recommend.
 // The dev server compiles routes on demand and can briefly 404 a route that is still
 // compiling when many workers hit it at once. E2E_DEV=1 uses `next dev` for quick local loops.
+// The longer keep-alive stops `next start` (5s by default) from closing a socket just as
+// Playwright's request client reuses it, which surfaced as a random ECONNRESET.
 const serverCommand = process.env.E2E_DEV
   ? `npm run dev -- --port ${PORT}`
-  : `npm run build && npm run start -- --port ${PORT}`;
+  : `npm run build && npm run start -- --port ${PORT} --keepAliveTimeout 65000`;
 
 // Everything the app and the worker see during e2e: test database, test bucket, no real email.
 const TEST_ENV = {

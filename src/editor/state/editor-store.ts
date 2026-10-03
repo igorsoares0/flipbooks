@@ -73,6 +73,7 @@ export interface EditorState {
   addShape: (kind: ShapeKind) => void;
   addImage: (asset: AssetItem) => void;
   addAsset: (asset: AssetItem) => void;
+  /** Drops a deleted picture from the library; pages that placed it show "Image missing". */
   removeAsset: (key: string) => void;
   setUpload: (upload: UploadItem) => void;
   removeUpload: (id: string) => void;
@@ -353,7 +354,21 @@ export function createEditorStore(
       },
 
       addAsset: (asset) => set((s) => ({ assets: [asset, ...s.assets.filter((a) => a.key !== asset.key)] })),
-      removeAsset: (key) => set((s) => ({ assets: s.assets.filter((a) => a.key !== key) })),
+      removeAsset: (key) => {
+        // Only the signed URL goes: it isn't saved, so this is not an edit.
+        const unsign = (pages: Page[]) =>
+          pages.map((page) =>
+            page.elements.some((el) => el.type === "IMAGE" && el.properties.assetKey === key)
+              ? {
+                  ...page,
+                  elements: page.elements.map((el) =>
+                    el.type === "IMAGE" && el.properties.assetKey === key ? { ...el, properties: { ...el.properties, imageUrl: null } } : el,
+                  ),
+                }
+              : page,
+          );
+        set((s) => ({ assets: s.assets.filter((a) => a.key !== key), pages: unsign(s.pages), past: s.past.map(unsign), future: s.future.map(unsign) }));
+      },
       setUpload: (upload) =>
         set((s) => ({
           uploads: s.uploads.some((u) => u.id === upload.id) ? s.uploads.map((u) => (u.id === upload.id ? upload : u)) : [...s.uploads, upload],

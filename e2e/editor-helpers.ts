@@ -4,7 +4,7 @@ import { cloneFlipbook } from "./db";
 import { expect, signInAsNewUser } from "./fixtures";
 
 export const properties = (page: Page) => page.getByRole("complementary", { name: "Properties" });
-export const selectionName = (page: Page) => properties(page).getByRole("heading");
+export const selectionName = (page: Page) => properties(page).getByRole("heading", { level: 2 });
 export const saved = (page: Page) => expect(page.getByText("Saved", { exact: true })).toBeVisible();
 export const element = (page: Page, name: string) => page.getByRole("button", { name: `Select ${name}`, exact: true });
 

@@ -172,7 +172,9 @@ describe("placing images", () => {
     // The free account can't place the other account's picture in its own book, not even by guessing its key.
     const theirs = await mutations.createFlipbook(FREE_USER);
     expect(await mutations.saveDocument(FREE_USER, theirs.id, withImage(await repo.getPages(theirs.id), mine.key))).toBe("foreign-file");
-    expect(await mutations.saveDocument(PRO, book.id, withImage(pages, keys.asset(PRO, "f".repeat(32), "png")))).toBe("foreign-file");
+    expect(await mutations.saveDocument(FREE_USER, theirs.id, withImage(await repo.getPages(theirs.id), keys.asset(PRO, "f".repeat(32), "png")))).toBe(
+      "foreign-file",
+    );
   });
 
   it("signs placed pictures when pages are read, and stops once the file is deleted", async () => {
@@ -195,5 +197,7 @@ describe("placing images", () => {
     const missing = await image();
     expect(missing.properties.assetKey).toBe(asset.key);
     expect(missing.properties.imageUrl).toBeUndefined();
+    // The book still saves with the missing picture in it.
+    expect(await mutations.saveDocument(PRO, book.id, documentSchema.parse(await repo.getPages(book.id)))).toBe("ok");
   });
 });

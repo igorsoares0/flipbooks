@@ -3,10 +3,8 @@ import { expect, signedOut, test } from "./fixtures";
 const OK_ROUTES = [
   "/",
   "/dashboard",
-  "/dashboard/flipbooks",
   "/dashboard/flipbooks/new",
   "/dashboard/templates",
-  "/dashboard/assets",
   "/dashboard/settings",
   "/dashboard/billing",
   "/dashboard/flipbooks/fb_8Kd2/settings",

@@ -248,12 +248,12 @@ test.describe("unsaved work", () => {
     await page.reload();
     await expect(element(page, "Body text")).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Restore unsaved changes" }).click();
+    await page.getByRole("button", { name: "Restore changes" }).click();
     await expect(element(page, "Body text")).toBeVisible();
     await saved(page);
 
     await page.reload();
     await expect(element(page, "Body text")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Restore unsaved changes" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Restore changes" })).toHaveCount(0);
   });
 });

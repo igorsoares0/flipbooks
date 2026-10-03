@@ -13,11 +13,15 @@ async function uploadFrom(page: Page, file: { name: string; buffer: Buffer; mime
 }
 
 test.describe("PDF upload", () => {
+  // Uploads wait for the worker, which renders the other specs' PDFs too; under a full run
+  // that alone can take most of the default 60s.
+  test.describe.configure({ timeout: 180_000 });
+
   test("a PDF becomes a readable flipbook without a reload", async ({ page }) => {
     await signInAsNewUser(page);
     await uploadFrom(page, { name: "Spring_lookbook-2027.pdf", buffer: await makePdf([A4_PORTRAIT, A4_LANDSCAPE, A4_PORTRAIT]) });
 
-    await expect(page).toHaveURL(/\/dashboard\/flipbooks$/);
+    await expect(page).toHaveURL(/\/dashboard$/);
     const book = row(page, "Spring lookbook 2027");
     await expect(book.getByText("Ready")).toBeVisible({ timeout: 60_000 }); // the watcher refreshes the list
     await expect(book.getByText("3 pages")).toBeVisible();

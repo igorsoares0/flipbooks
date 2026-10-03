@@ -439,6 +439,24 @@ describe("editor gestures and edits", () => {
     expect(image.type === "IMAGE" && image.properties).toMatchObject({ assetKey: "assets/u/1.jpg", imageUrl: "https://x/1.jpg" });
   });
 
+  it("removing a picture from the library unsigns it everywhere, without an edit", () => {
+    const store = withBoxes();
+    const asset = { id: "as1", key: "assets/u/1.jpg", url: "https://x/1.jpg", filename: "beach.jpg", width: 2000, height: 1000 };
+    store.getState().addAsset(asset);
+    store.getState().addImage(asset);
+    const saveStatus = store.getState().saveStatus;
+    store.getState().removeAsset(asset.key);
+
+    expect(store.getState().assets).toEqual([]);
+    const image = active(store).elements.at(-1)!;
+    expect(image.type === "IMAGE" && image.properties).toMatchObject({ assetKey: "assets/u/1.jpg", imageUrl: null });
+    expect(store.getState().saveStatus).toBe(saveStatus);
+    store.getState().undo();
+    store.getState().redo();
+    const redone = active(store).elements.at(-1)!;
+    expect(redone.type === "IMAGE" && redone.properties.imageUrl).toBeNull();
+  });
+
   it("reorders pages, renumbers them, and undoes", () => {
     const store = createEditorStore([page(1), page(2), page(3)], { save: okSave });
     store.getState().reorderPage(0, 2);

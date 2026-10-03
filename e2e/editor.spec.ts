@@ -27,7 +27,7 @@ test.describe("editor", () => {
     const image = await page.getByRole("button", { name: "Select Cover image" }).boundingBox();
     await page.mouse.click(image!.x + 20, image!.y + image!.height + 30);
     await expect(selectionName(page)).toHaveText("Page 1");
-    await expect(properties(page).getByText("PAGE", { exact: true })).toBeVisible();
+    await expect(properties(page).getByText("Page", { exact: true })).toBeVisible();
   });
 
   test("new pages autosave and survive a reload", async ({ page }) => {

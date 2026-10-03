@@ -1,3 +1,5 @@
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { expect, signedOut, test } from "./fixtures";
 
 test.describe("public viewer", () => {
@@ -58,7 +60,7 @@ test.describe("public viewer", () => {
 });
 
 test.describe("page turn", () => {
-  const counter = (page: import("@playwright/test").Page) => page.getByText(/^\d+(–\d+)? \/ 64$/);
+  const counter = (page: import("@playwright/test").Page) => page.getByText(/^\d+(–\d+)? of 64$/);
 
   /**
    * Records what the book shows on every animation frame. A turn lasts about 600ms, so
@@ -203,12 +205,23 @@ test.describe("embed", () => {
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
   });
 
-  test("works inside an iframe", async ({ page, baseURL }) => {
-    await page.setContent(`<iframe src="${baseURL}/embed/fb_8Kd2" width="800" height="600"></iframe>`);
-    const frame = page.frameLocator("iframe");
-    await expect(frame.getByText("1 of 64")).toBeVisible();
-    await frame.getByRole("button", { name: "Next pages" }).click();
-    await expect(frame.getByText("2–3 of 64")).toBeVisible();
+  test("works inside an iframe on another site", async ({ page, baseURL }) => {
+    // The host page needs a real http origin: `frame-ancestors *` never matches an about:blank
+    // parent (setContent), and Chrome blocks a non-local origin from framing localhost.
+    const host = createServer((_, res) => {
+      res.setHeader("Content-Type", "text/html");
+      res.end(`<iframe src="${baseURL}/embed/fb_8Kd2" width="800" height="600"></iframe>`);
+    });
+    await new Promise<void>((resolve) => host.listen(0, "127.0.0.1", resolve));
+    try {
+      await page.goto(`http://127.0.0.1:${(host.address() as AddressInfo).port}/`);
+      const frame = page.frameLocator("iframe");
+      await expect(frame.getByText("1 of 64")).toBeVisible();
+      await frame.getByRole("button", { name: "Next pages" }).click();
+      await expect(frame.getByText("2–3 of 64")).toBeVisible();
+    } finally {
+      host.close();
+    }
   });
 });
 

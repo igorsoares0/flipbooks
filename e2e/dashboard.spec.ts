@@ -2,7 +2,7 @@ import { cloneFlipbook } from "./db";
 import { expect, signInAsNewUser, test } from "./fixtures";
 
 const recentTable = (page: import("@playwright/test").Page) =>
-  page.locator("section", { has: page.getByRole("heading", { name: "Contents" }) });
+  page.locator("section", { has: page.getByRole("heading", { name: "All flipbooks" }) });
 const rowOf = (page: import("@playwright/test").Page, title: string) => recentTable(page).locator("[data-flipbook-row]").filter({ hasText: title });
 
 // Read-only checks run as the seeded demo user; anything that writes uses a fresh account.
@@ -18,7 +18,7 @@ test.describe("dashboard", () => {
     await page.goto("/dashboard");
     await page.getByRole("button", { name: /^Canvas \d+$/ }).click();
     const table = recentTable(page);
-    await expect(table.getByRole("button", { name: /^More actions for / })).toHaveCount(2);
+    await expect(table.getByRole("button", { name: /^More actions for / })).toHaveCount(4);
     await expect(table.getByText("Brand Guidelines v4")).toBeVisible();
     await expect(table.getByText("Summer Catalog 2026")).toBeHidden();
   });
@@ -41,28 +41,35 @@ test.describe("dashboard", () => {
   test("processing and failed books can't be opened yet", async ({ page }) => {
     await page.goto("/dashboard");
     const row = rowOf(page, "Annual Report 2026");
-    await expect(row.getByText("Rendering")).toBeVisible();
+    await expect(row.getByText("Rendering", { exact: true })).toBeVisible();
     await expect(row.getByRole("link", { name: "Edit", exact: true })).toHaveCount(0);
   });
 
   test("search filters the flipbook list", async ({ page }) => {
-    await page.goto("/dashboard/flipbooks");
+    await page.goto("/dashboard");
     await page.getByPlaceholder("Search flipbooks").fill("catalog");
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\/dashboard\/flipbooks\?q=catalog/);
+    await expect(page).toHaveURL(/\/dashboard\?q=catalog/);
+    await expect(page.getByText("2 results for")).toBeVisible();
+  });
+
+  test("the old list URL redirects, keeping the search", async ({ page }) => {
+    await page.goto("/dashboard/flipbooks?q=catalog");
+    await expect(page).toHaveURL(/\/dashboard\?q=catalog$/);
     await expect(page.getByText("2 results for")).toBeVisible();
   });
 
   test("an empty search explains itself", async ({ page }) => {
-    await page.goto("/dashboard/flipbooks?q=zzz");
+    await page.goto("/dashboard?q=zzz");
     await expect(page.getByText("No flipbooks match that search.")).toBeVisible();
   });
 
   test("sidebar shows the signed-in account and current section", async ({ page }) => {
     await page.goto("/dashboard/billing");
-    await expect(page.getByText("marina@studio.co")).toBeVisible();
+    await page.getByRole("button", { name: "Account menu" }).click();
+    await expect(page.getByRole("menu").getByText("marina@studio.co")).toBeVisible();
     await expect(page.getByRole("link", { name: "Billing" })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("link", { name: "Flipbooks" })).not.toHaveAttribute("aria-current", "page");
   });
 });
 
@@ -134,7 +141,7 @@ test.describe("row menu", () => {
   test("duplicates and deletes a flipbook", async ({ page }) => {
     const user = await signInAsNewUser(page);
     await cloneFlipbook("fb_2Hc6", user.id);
-    await page.goto("/dashboard/flipbooks");
+    await page.goto("/dashboard");
 
     await page.getByRole("button", { name: "More actions for Investor Deck" }).click();
     await page.getByRole("menuitem", { name: "Duplicate" }).click();
@@ -153,7 +160,7 @@ test.describe("pagination", () => {
     const user = await signInAsNewUser(page);
     for (let i = 0; i < 22; i++) await cloneFlipbook("fb_2Hc6", user.id);
 
-    await page.goto("/dashboard/flipbooks");
+    await page.goto("/dashboard");
     const rows = page.getByRole("button", { name: /^More actions for / });
     await expect(rows).toHaveCount(20);
     await expect(page.getByText("1–20 of 22")).toBeVisible();
@@ -164,7 +171,7 @@ test.describe("pagination", () => {
     await expect(rows).toHaveCount(2);
     await expect(page.getByRole("link", { name: "Next" })).toHaveAttribute("aria-disabled", "true");
 
-    await page.goto("/dashboard/flipbooks?q=investor");
+    await page.goto("/dashboard?q=investor");
     await expect(page.getByText("22 results for")).toBeVisible();
     await page.getByRole("link", { name: "Next" }).click();
     await expect(page).toHaveURL(/q=investor&page=2/);

@@ -195,12 +195,11 @@ export async function saveDocument(userId: string, id: string, pages: DocumentIn
   if (pages.some((page) => page.backgroundImageKey && !page.backgroundImageKey.startsWith(keys.prefix(id)))) {
     return "foreign-file";
   }
-  const assetKeys = new Set(
-    pages.flatMap((page) => page.elements.flatMap((el) => (el.type === "IMAGE" && el.properties.assetKey ? [el.properties.assetKey] : []))),
-  );
-  if (assetKeys.size > 0) {
-    const owned = await prisma.asset.count({ where: { userId, key: { in: [...assetKeys] } } });
-    if (owned !== assetKeys.size) return "foreign-file";
+  // A key under the caller's own prefix that is no longer in their library is a picture they
+  // deleted: it still saves, and renders "Image missing" (only library keys get signed).
+  const assetPrefix = keys.assetPrefix(userId);
+  if (pages.some((page) => page.elements.some((el) => el.type === "IMAGE" && el.properties.assetKey && !el.properties.assetKey.startsWith(assetPrefix)))) {
+    return "foreign-file";
   }
 
   const existing = new Set(owned.pages.map((p) => p.id));

@@ -312,7 +312,7 @@ export function FlipbookSettings({
 
   const remove = async () => {
     setBusy("delete");
-    const result = await deleteFlipbookAction(flipbook.id, { redirectTo: "/dashboard/flipbooks" });
+    const result = await deleteFlipbookAction(flipbook.id, { redirectTo: "/dashboard" });
     if (result && !result.ok) {
       setActionError(result.error);
       setBusy(null);
@@ -346,7 +346,7 @@ export function FlipbookSettings({
       <div className="flex flex-wrap items-end gap-5">
         <div className="flex min-w-0 flex-col gap-2">
           <nav aria-label="Breadcrumb" className="text-[13px] text-muted">
-            <Link href="/dashboard/flipbooks" className="hover:text-ink">
+            <Link href="/dashboard" className="hover:text-ink">
               Flipbooks
             </Link>{" "}
             / Settings

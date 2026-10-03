@@ -6,8 +6,6 @@ import {
   ChevronsUpDown,
   CreditCard,
   Globe,
-  House,
-  Image as ImageIcon,
   LayoutTemplate,
   LogOut,
   Menu,
@@ -30,15 +28,13 @@ type NavItem = { label: string; href: string; icon: LucideIcon; isActive: (path:
 const isAnalyticsPath = (path: string) => /^\/dashboard\/(analytics|flipbooks\/[^/]+\/analytics)/.test(path);
 
 const NAV: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: House, isActive: (p) => p === "/dashboard" },
   {
     label: "Flipbooks",
-    href: "/dashboard/flipbooks",
+    href: "/dashboard",
     icon: BookOpen,
-    isActive: (p) => p.startsWith("/dashboard/flipbooks") && !isAnalyticsPath(p),
+    isActive: (p) => p === "/dashboard" || (p.startsWith("/dashboard/flipbooks") && !isAnalyticsPath(p)),
   },
   { label: "Templates", href: "/dashboard/templates", icon: LayoutTemplate, isActive: (p) => p === "/dashboard/templates" },
-  { label: "Assets", href: "/dashboard/assets", icon: ImageIcon, isActive: (p) => p === "/dashboard/assets" },
   { label: "Analytics", href: "/dashboard/analytics", icon: ChartNoAxesColumn, isActive: isAnalyticsPath },
   { label: "Billing", href: "/dashboard/billing", icon: CreditCard, isActive: (p) => p === "/dashboard/billing" },
   { label: "Settings", href: "/dashboard/settings", icon: Settings, isActive: (p) => p === "/dashboard/settings" },

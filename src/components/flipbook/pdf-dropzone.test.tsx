@@ -94,7 +94,7 @@ describe("PdfDropzone", () => {
     expect(await screen.findByText("25%")).toBeTruthy();
     FakeXhr.last.finish(200);
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard/flipbooks"));
+    await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard"));
     expect(finishPdfUpload).toHaveBeenCalledWith("fb_new");
   });
 

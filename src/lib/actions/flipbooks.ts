@@ -98,7 +98,7 @@ export async function deleteFlipbookAction(id: string, options: { redirectTo?: s
   if (!idSchema.safeParse(id).success) return fail("Invalid input.");
   if (!(await mutations.deleteFlipbook(user.id, id))) return fail(NOT_FOUND);
   revalidatePath("/dashboard", "layout");
-  if (options.redirectTo === "/dashboard/flipbooks") redirect("/dashboard/flipbooks");
+  if (options.redirectTo === "/dashboard") redirect("/dashboard");
   return { ok: true };
 }
 

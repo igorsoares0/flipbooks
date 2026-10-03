@@ -1,12 +1,14 @@
 "use client";
 
-import { Eye, EyeOff, Image as ImageIcon, Lock, LockOpen, Square, Type, Upload, type LucideIcon } from "lucide-react";
-import { useRef, useState } from "react";
+import { Eye, EyeOff, Image as ImageIcon, Lock, LockOpen, Square, Trash2, Type, Upload, type LucideIcon } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
 import { Meter } from "@/components/ui/meter";
+import { assetUsageAction, deleteAssetAction } from "@/lib/actions/assets";
 import type { ElementType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useActivePage, useEditor } from "../state/editor-context";
-import type { ShapeKind } from "../state/editor-store";
+import type { AssetItem, ShapeKind } from "../state/editor-store";
 import { IMAGE_ACCEPT, useAssetUpload } from "./asset-upload";
 import { TOOLS } from "./tool-rail";
 
@@ -48,26 +50,97 @@ function ShapesPanel() {
   );
 }
 
-/** The user's library; clicking a picture places it on the page. */
-function AssetGrid() {
-  const assets = useEditor((s) => s.assets);
+/** One library picture. Deleting first says how many saved flipbooks place it. */
+function AssetTile({ asset, deletable }: { asset: AssetItem; deletable: boolean }) {
   const addImage = useEditor((s) => s.addImage);
+  const removeAsset = useEditor((s) => s.removeAsset);
+  // null: not asked yet; a number: how many flipbooks place the picture.
+  const [usage, setUsage] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const ask = () =>
+    startTransition(async () => {
+      const result = await assetUsageAction(asset.id);
+      if (result.ok) setUsage(result.flipbooks);
+      else setError(result.error);
+    });
+
+  const remove = () =>
+    startTransition(async () => {
+      const result = await deleteAssetAction(asset.id);
+      if (result.ok) removeAsset(asset.key);
+      else setError(result.error);
+    });
+
+  // Signed storage URL, like page images.
+  // eslint-disable-next-line @next/next/no-img-element
+  const thumbnail = (className: string) => <img src={asset.url} alt="" className={className} loading="lazy" draggable={false} />;
+
+  if (usage !== null || error) {
+    return (
+      <li className="col-span-2 flex gap-2.5 border border-line-2 p-2">
+        {thumbnail("size-14 shrink-0 bg-canvas object-cover")}
+        {error ? (
+          <div className="flex min-w-0 flex-col items-start gap-1.5 text-[12px]">
+            <p role="alert" className="text-danger">
+              {error}
+            </p>
+            <button onClick={() => setError(null)} className="text-muted hover:text-ink">
+              Dismiss
+            </button>
+          </div>
+        ) : (
+          <div role="alertdialog" aria-label={`Delete ${asset.filename}?`} className="flex min-w-0 flex-col gap-2 text-[12px]">
+            <span className="whitespace-normal text-muted">
+              {usage === 0 ? "Not used in any flipbook." : `Used in ${usage} flipbook${usage === 1 ? "" : "s"}; it will show as missing there.`}
+            </span>
+            <div className="flex gap-1.5">
+              <Button variant="danger" size="xs" onClick={remove} disabled={pending}>
+                {pending ? "Deleting…" : "Delete image"}
+              </Button>
+              <Button variant="outline" size="xs" onClick={() => setUsage(null)} disabled={pending}>
+                Keep
+              </Button>
+            </div>
+          </div>
+        )}
+      </li>
+    );
+  }
+
+  return (
+    <li className="group relative">
+      <button
+        onClick={() => addImage(asset)}
+        aria-label={`Add ${asset.filename}`}
+        title={asset.filename}
+        className="block aspect-square w-full overflow-hidden bg-canvas hover:shadow-[0_0_0_2px_var(--color-accent)]"
+      >
+        {thumbnail("size-full object-cover")}
+      </button>
+      {deletable && (
+        <button
+          onClick={ask}
+          disabled={pending}
+          aria-label={`Delete ${asset.filename}`}
+          className="absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-full bg-surface text-ink opacity-0 shadow-sm group-hover:opacity-100 hover:bg-danger-bg hover:text-danger focus-visible:opacity-100"
+        >
+          <Trash2 className="size-3.5" strokeWidth={1.6} />
+        </button>
+      )}
+    </li>
+  );
+}
+
+/** The user's library; clicking a picture places it on the page. */
+function AssetGrid({ deletable = false }: { deletable?: boolean }) {
+  const assets = useEditor((s) => s.assets);
   if (assets.length === 0) return <p className="text-[13px] text-muted">No images yet.</p>;
   return (
     <ul className="grid grid-cols-2 gap-2" aria-label="Your images">
       {assets.map((asset) => (
-        <li key={asset.key}>
-          <button
-            onClick={() => addImage(asset)}
-            aria-label={`Add ${asset.filename}`}
-            title={asset.filename}
-            className="block aspect-square w-full overflow-hidden bg-canvas hover:shadow-[0_0_0_2px_var(--color-accent)]"
-          >
-            {/* Signed storage URL, like page images. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={asset.url} alt="" className="size-full object-cover" loading="lazy" draggable={false} />
-          </button>
-        </li>
+        <AssetTile key={asset.key} asset={asset} deletable={deletable} />
       ))}
     </ul>
   );
@@ -144,7 +217,7 @@ function UploadsPanel() {
           ))}
         </ul>
       )}
-      <AssetGrid />
+      <AssetGrid deletable />
     </div>
   );
 }

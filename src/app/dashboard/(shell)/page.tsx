@@ -1,13 +1,16 @@
+import { Search } from "lucide-react";
 import type { Metadata } from "next";
+import Form from "next/form";
 import Link from "next/link";
 import { toFlipbookRows } from "@/components/dashboard/flipbook-rows";
 import { FlipbookTable } from "@/components/dashboard/flipbook-table";
 import { ProcessingWatcher } from "@/components/dashboard/processing-watcher";
-import { ButtonLink } from "@/components/ui/button";
+import { ButtonLink, buttonClasses } from "@/components/ui/button";
 import { getBilling, getCurrentUser, getFlipbookPage } from "@/lib/data";
 import { formatCount } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Dashboard" };
+export const metadata: Metadata = { title: "Flipbooks" };
 
 /** First run: nothing to list yet, so the page is one invitation to start. */
 function Welcome({ firstName, limits }: { firstName: string; limits: string }) {
@@ -39,25 +42,68 @@ function Welcome({ firstName, limits }: { firstName: string; limits: string }) {
   );
 }
 
-export default async function DashboardPage() {
-  const [user, billing, { flipbooks, total }] = await Promise.all([getCurrentUser(), getBilling(), getFlipbookPage({})]);
-  const { entitlements } = billing;
+export default async function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
+  const { q, page: pageParam } = await searchParams;
+  const query = typeof q === "string" ? q : undefined;
+  const requested = Math.max(1, Math.floor(Number(pageParam)) || 1);
+  const { flipbooks, total, page, perPage, pageCount } = await getFlipbookPage({ query, page: requested });
 
-  if (total === 0) {
+  if (total === 0 && !query) {
+    const [user, billing] = await Promise.all([getCurrentUser(), getBilling()]);
     const plan = billing.plan === "PRO" ? "Pro plan" : "Free plan";
-    const limits = `${plan} · ${formatCount(entitlements.maxFlipbooks)} flipbooks, ${formatCount(entitlements.maxPagesPerFlipbook)} pages each`;
+    const limits = `${plan} · ${formatCount(billing.entitlements.maxFlipbooks)} flipbooks, ${formatCount(billing.entitlements.maxPagesPerFlipbook)} pages each`;
     return <Welcome firstName={user.name.split(/\s+/)[0] || user.name} limits={limits} />;
   }
 
+  const href = (target: number) => ({ query: { ...(query ? { q: query } : {}), ...(target > 1 ? { page: target } : {}) } });
+  const first = total === 0 ? 0 : (page - 1) * perPage + 1;
+  const pager = buttonClasses({ variant: "outline", size: "sm" });
+
   return (
     <div className="flex max-w-[1180px] flex-col gap-6">
-      <h1 className="sr-only">Dashboard</h1>
+      <h1 className="font-serif text-[40px] leading-none tracking-[-1.2px] md:text-[52px] md:tracking-[-1.6px]">Flipbooks</h1>
       <ProcessingWatcher active={flipbooks.some((fb) => fb.status === "UPLOADING" || fb.status === "PROCESSING")} />
-      <FlipbookTable title="Contents" rows={toFlipbookRows(flipbooks)} />
-      {total > flipbooks.length && (
-        <Link href="/dashboard/flipbooks" className="self-start text-[13.5px] font-semibold text-accent underline underline-offset-[3px] hover:text-ink">
-          All {formatCount(total)} flipbooks
-        </Link>
+      {query && (
+        <p className="text-[13.5px] text-muted">
+          {formatCount(total)} result{total === 1 ? "" : "s"} for <span className="font-semibold text-ink">“{query}”</span>
+        </p>
+      )}
+      <FlipbookTable
+        title={query ? "Search results" : "All flipbooks"}
+        rows={toFlipbookRows(flipbooks)}
+        emptyMessage={query ? "No flipbooks match that search." : undefined}
+        actions={
+          <Form action="/dashboard" className="relative flex w-60 items-center">
+            <Search className="pointer-events-none absolute left-0 size-4 opacity-55" strokeWidth={1.6} />
+            <input
+              name="q"
+              type="search"
+              defaultValue={query}
+              placeholder="Search flipbooks"
+              aria-label="Search flipbooks"
+              className="input-line h-9 pl-6 text-[14px]"
+            />
+          </Form>
+        }
+      />
+      {pageCount > 1 && (
+        <nav className="flex items-center gap-3" aria-label="Pages">
+          <span className="text-[13px] text-muted tabular-nums">
+            {formatCount(first)}–{formatCount(first + flipbooks.length - 1)} of {formatCount(total)}
+          </span>
+          <div className="ml-auto flex gap-2">
+            <Link href={href(page - 1)} aria-disabled={page === 1} className={cn(pager, page === 1 && "pointer-events-none opacity-40")}>
+              Previous
+            </Link>
+            <Link
+              href={href(page + 1)}
+              aria-disabled={page >= pageCount}
+              className={cn(pager, page >= pageCount && "pointer-events-none opacity-40")}
+            >
+              Next
+            </Link>
+          </div>
+        </nav>
       )}
     </div>
   );

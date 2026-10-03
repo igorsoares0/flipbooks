@@ -14,7 +14,7 @@ import * as repo from "./flipbooks";
 
 export const isViewable = hasPages;
 
-/** Flipbooks per page on /dashboard/flipbooks. */
+/** Flipbooks per page on /dashboard. */
 export const PER_PAGE = 20;
 
 export const getCurrentUser = requireUser;
