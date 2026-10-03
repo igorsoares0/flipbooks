@@ -5,7 +5,6 @@ import {
   ChartNoAxesColumn,
   ChevronsUpDown,
   CreditCard,
-  Globe,
   LayoutTemplate,
   LogOut,
   Menu,
@@ -43,7 +42,7 @@ const NAV: NavItem[] = [
 export type ShellUser = { name: string; email: string; initials: string; emailVerified: boolean };
 export type ShellStorage = { used: string; limit: string; ratio: number; planLabel: string };
 
-/** Sign-out and the public site live in a small menu on the user row. */
+/** Sign-out lives in a small menu on the user row. */
 function UserMenu({ user, planLabel }: { user: ShellUser; planLabel: string }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
@@ -81,10 +80,6 @@ function UserMenu({ user, planLabel }: { user: ShellUser; planLabel: string }) {
       {open && (
         <div role="menu" className="absolute bottom-full left-0 z-50 mb-2 w-full bg-surface p-1 shadow-menu">
           <div className="truncate px-2.5 pt-1.5 pb-2 text-xs text-muted">{user.email}</div>
-          <Link role="menuitem" href="/" className={item}>
-            <Globe className="size-4 opacity-60" strokeWidth={1.6} />
-            Site
-          </Link>
           <button role="menuitem" className={item} disabled={pending} onClick={signOut}>
             <LogOut className="size-4 opacity-60" strokeWidth={1.6} />
             Sign out
