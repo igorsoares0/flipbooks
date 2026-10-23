@@ -184,8 +184,7 @@ export function Artboard() {
       >
         <PageCanvas
           page={page}
-          // isolate keeps element z-indexes inside the page, under the transform layer.
-          className="isolate shadow-page"
+          className="shadow-page"
           style={{ width: "100%" }}
           renderElement={(element) => {
             const editing = element.id === editingId && element.type === "TEXT";

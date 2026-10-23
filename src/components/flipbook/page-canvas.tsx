@@ -154,7 +154,9 @@ export function PageCanvas({
   const elements = page.elements.filter((el) => el.visible).toSorted((a, b) => a.zIndex - b.zIndex);
   return (
     <div
-      className={cn("@container relative overflow-hidden", className)}
+      // isolate keeps element z-indexes inside the page: without it, a page lying under the
+      // viewer's turning leaf (or the editor's transform layer) paints its elements over it.
+      className={cn("@container relative isolate overflow-hidden", className)}
       style={{ background: page.background.color, aspectRatio: `${page.width} / ${page.height}`, ...style }}
     >
       {page.backgroundImageUrl && (
