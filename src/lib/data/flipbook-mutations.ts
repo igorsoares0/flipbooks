@@ -1,13 +1,18 @@
 import "server-only";
 
 import { randomBytes, randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import sharp from "sharp";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { DEFAULT_SETTINGS, PAGE_HEIGHT, PAGE_WIDTH, slugify } from "@/lib/flipbook-rules";
-import { copyPrefix, deletePrefix, keys } from "@/lib/storage";
-import { buildTemplatePages } from "@/lib/templates";
+import { copyPrefix, deletePrefix, keys, putObject } from "@/lib/storage";
+import { buildTemplatePages, templatePhotoFiles } from "@/lib/templates";
 import type { Template } from "@/lib/types";
 import type { DocumentInput, FlipbookPatch } from "@/lib/validation";
+import { IMAGE_TYPES, sniffImageType } from "./assets";
+import { getUsage } from "./flipbooks";
 import { toFlipbook } from "./mappers";
 
 // Write side. Callers (server actions) authenticate and validate first; every
@@ -54,42 +59,82 @@ async function withSlugRetry<T>(create: () => Promise<T>, attempts = 3): Promise
   }
 }
 
-export async function createFlipbook(userId: string, { template, maxPages }: { template?: Template; maxPages?: number } = {}) {
+/**
+ * Copies a template's bundled pictures (public/templates/) into the user's library, so the
+ * new pages place them like any upload. Nothing is copied when they would go over the
+ * storage limit; the pages then keep their placeholders.
+ */
+async function copyTemplatePhotos(userId: string, files: string[], maxStorageBytes?: number) {
+  const photos = await Promise.all(
+    files.map(async (file) => {
+      const bytes = await readFile(join(process.cwd(), "public", "templates", file));
+      const mimeType = sniffImageType(bytes);
+      const { width, height } = await sharp(bytes).metadata();
+      if (!mimeType || !width || !height) throw new Error(`Template picture ${file} isn't a usable image`);
+      return { file, bytes, mimeType, width, height };
+    }),
+  );
+  const size = photos.reduce((sum, photo) => sum + photo.bytes.length, 0);
+  if (!photos.length || (maxStorageBytes !== undefined && (await getUsage(userId)).storageBytes + size > maxStorageBytes)) return [];
+  return Promise.all(
+    photos.map(async ({ file, bytes, mimeType, width, height }) => {
+      const key = keys.asset(userId, randomUUID().replaceAll("-", ""), IMAGE_TYPES[mimeType]);
+      await putObject(key, bytes, mimeType);
+      return { file, key, filename: file.replaceAll("/", "-"), mimeType, size: bytes.length, width, height };
+    }),
+  );
+}
+
+export async function createFlipbook(
+  userId: string,
+  { template, maxPages, maxStorageBytes }: { template?: Template; maxPages?: number; maxStorageBytes?: number } = {},
+) {
   const title = template ? `${template.name} (from template)` : "Untitled flipbook";
   const tint = COVER_TINTS[Math.floor(Math.random() * COVER_TINTS.length)];
+  const photos = template ? await copyTemplatePhotos(userId, templatePhotoFiles(template.id, maxPages), maxStorageBytes) : [];
+  const photoKeys = new Map(photos.map((photo) => [photo.file, photo.key]));
   // A template's designed pages (up to the plan's page limit), or one blank page.
   // The database assigns fresh ids.
   const pages = template
-    ? buildTemplatePages(template.id, "new", maxPages)
+    ? buildTemplatePages(template.id, "new", maxPages, (file) => ({ assetKey: photoKeys.get(file) ?? null }))
     : [{ pageNumber: 1, width: PAGE_WIDTH, height: PAGE_HEIGHT, background: { color: "#FFFFFF" }, elements: [] }];
 
-  const create = async () => prisma.flipbook.create({
-    data: {
-      userId,
-      title,
-      slug: await uniqueSlug(title),
-      type: "CANVAS",
-      status: "DRAFT",
-      visibility: "PRIVATE",
-      settings: { ...DEFAULT_SETTINGS },
-      thumbnailTint: tint,
-      pageCount: pages.length,
-      pages: {
-        create: pages.map((page) => ({
-          pageNumber: page.pageNumber,
-          width: page.width,
-          height: page.height,
-          background: { ...page.background },
-          elements: {
-            create: page.elements.map(({ id: _id, pageId: _pageId, properties, ...el }) => ({
-              ...el,
-              properties: properties as unknown as Prisma.InputJsonValue,
+  // The pictures join the library with the flipbook. If this fails, their files have no
+  // library row, and the worker's orphan sweep removes them.
+  const create = async () => {
+    const slug = await uniqueSlug(title);
+    const [flipbook] = await prisma.$transaction([
+      prisma.flipbook.create({
+        data: {
+          userId,
+          title,
+          slug,
+          type: "CANVAS",
+          status: "DRAFT",
+          visibility: "PRIVATE",
+          settings: { ...DEFAULT_SETTINGS },
+          thumbnailTint: tint,
+          pageCount: pages.length,
+          pages: {
+            create: pages.map((page) => ({
+              pageNumber: page.pageNumber,
+              width: page.width,
+              height: page.height,
+              background: { ...page.background },
+              elements: {
+                create: page.elements.map(({ id: _id, pageId: _pageId, properties, ...el }) => ({
+                  ...el,
+                  properties: properties as unknown as Prisma.InputJsonValue,
+                })),
+              },
             })),
           },
-        })),
-      },
-    },
-  });
+        },
+      }),
+      prisma.asset.createMany({ data: photos.map(({ file: _file, ...photo }) => ({ ...photo, userId, type: "IMAGE" })) }),
+    ]);
+    return flipbook;
+  };
   const flipbook = await withSlugRetry(create);
   return toFlipbook(flipbook);
 }

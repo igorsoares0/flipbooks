@@ -9,20 +9,32 @@ import {
   statsLayout,
   type Tint,
 } from "@/lib/layouts";
-import type { Page, PageElement, Template, TextRun } from "@/lib/types";
+import { KPI_REPORT_PAGES, KPI_REPORT_PHOTOS } from "@/lib/template-kpi-report";
+import type { ImageElement, Page, PageElement, Template, TextRun } from "@/lib/types";
 
-// Template catalog. Picking one creates an editable copy (spec §17): a cover plus
-// interior layouts in the template's colours, repeated up to its page count.
+// Template catalog. Picking one creates an editable copy (spec §17): either a cover plus
+// interior layouts in the template's colours, repeated up to its page count, or a set of
+// pages designed one by one.
 
 type Layout = (pageId: string, pageNumber: number) => PageElement[];
 
-type TemplateDesign = Template & {
-  accent: string;
-  photo: Tint;
-  cover: { runs: TextRun[]; caption: string };
-  /** Interior layouts, cycled after the cover. */
-  interior: Layout[];
-};
+type TemplateDesign = Template &
+  (
+    | {
+        accent: string;
+        photo: Tint;
+        cover: { runs: TextRun[]; caption: string };
+        /** Interior layouts, cycled after the cover. */
+        interior: Layout[];
+      }
+    | { pages: { background: string; elements: Layout }[] }
+  ) & {
+    /** Pictures bundled under public/templates/, placed by `p{page}_{element key}`. */
+    photos?: Record<string, string>;
+  };
+
+/** What a bundled picture becomes on an image element: a library copy, or a preview URL. */
+export type PhotoResolver = (file: string) => Partial<ImageElement["properties"]>;
 
 const chapter = (headlines: string[]): Layout => (pageId, n) =>
   chapterLayout(pageId, { eyebrow: `SECTION ${String(Math.ceil(n / 2)).padStart(2, "0")}`, headline: headlines[(n - 2) % headlines.length] });
@@ -30,6 +42,15 @@ const chapter = (headlines: string[]): Layout => (pageId, n) =>
 const photo = (tint: Tint): Layout => (pageId) => photoLayout(pageId, { tint });
 
 const DESIGNS: TemplateDesign[] = [
+  {
+    id: "tpl_kpi_report",
+    name: "KPI Report",
+    category: "Reports",
+    pageCount: KPI_REPORT_PAGES.length,
+    tint: KPI_REPORT_PAGES[0].background,
+    pages: KPI_REPORT_PAGES,
+    photos: KPI_REPORT_PHOTOS,
+  },
   {
     id: "tpl_editorial",
     name: "Editorial",
@@ -166,34 +187,61 @@ export function findTemplate(id: string | undefined) {
   return TEMPLATES.find((t) => t.id === id);
 }
 
-/** The template's pages as editor documents. `idPrefix` keeps page and element ids unique. */
-export function buildTemplatePages(templateId: string, idPrefix: string, limit?: number): Page[] {
+function designedPage(design: TemplateDesign, pageId: string, pageNumber: number): { background: string; elements: PageElement[] } {
+  if ("pages" in design) {
+    const page = design.pages[pageNumber - 1];
+    return { background: page.background, elements: page.elements(pageId, pageNumber) };
+  }
+  const elements =
+    pageNumber === 1
+      ? coverLayout(pageId, { ...design.cover, accent: design.accent, tint: design.photo })
+      : design.interior[(pageNumber - 2) % design.interior.length](pageId, pageNumber);
+  return { background: design.tint, elements };
+}
+
+/**
+ * The template's pages as editor documents. `idPrefix` keeps page and element ids unique.
+ * Bundled pictures stay placeholders unless `photo` says what to put in their place.
+ */
+export function buildTemplatePages(templateId: string, idPrefix: string, limit?: number, photo?: PhotoResolver): Page[] {
   const design = DESIGNS.find((d) => d.id === templateId);
   if (!design) return [];
   const count = Math.min(design.pageCount, limit ?? design.pageCount);
   return Array.from({ length: count }, (_, i) => {
     const pageNumber = i + 1;
     const pageId = `${idPrefix}_p${pageNumber}`;
-    const elements =
-      pageNumber === 1
-        ? coverLayout(pageId, { ...design.cover, accent: design.accent, tint: design.photo })
-        : design.interior[(pageNumber - 2) % design.interior.length](pageId, pageNumber);
+    const { background, elements } = designedPage(design, pageId, pageNumber);
+    const placePhoto = (el: PageElement): PageElement => {
+      if (!photo || el.type !== "IMAGE") return el;
+      const file = design.photos?.[el.id.slice(idPrefix.length + 1)];
+      return file ? { ...el, properties: { ...el.properties, ...photo(file) } } : el;
+    };
     return {
       id: pageId,
       flipbookId: idPrefix,
       pageNumber,
       width: PAGE_WIDTH,
       height: PAGE_HEIGHT,
-      background: { color: design.tint },
+      background: { color: background },
       backgroundImageKey: null,
-      elements,
+      elements: elements.map(placePhoto),
     };
   });
 }
 
+/** The bundled pictures placed on the template's first `limit` pages. */
+export function templatePhotoFiles(templateId: string, limit?: number): string[] {
+  const photos = DESIGNS.find((d) => d.id === templateId)?.photos ?? {};
+  const files = Object.entries(photos).filter(([placement]) => limit === undefined || Number(/^p(\d+)_/.exec(placement)?.[1]) <= limit);
+  return [...new Set(files.map(([, file]) => file))];
+}
+
 export type TemplateWithCover = Template & { cover: Page };
 
-/** Every template with its real first page, for the gallery's previews. */
+/** Every template with its real first page, for the gallery's previews (bundled pictures load from public/). */
 export function templatesWithCovers(): TemplateWithCover[] {
-  return TEMPLATES.map((template) => ({ ...template, cover: buildTemplatePages(template.id, `preview_${template.id}`, 1)[0] }));
+  return TEMPLATES.map((template) => ({
+    ...template,
+    cover: buildTemplatePages(template.id, `preview_${template.id}`, 1, (file) => ({ imageUrl: `/templates/${file}` }))[0],
+  }));
 }

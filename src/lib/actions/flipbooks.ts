@@ -33,7 +33,11 @@ export async function createFlipbookAction(formData: FormData) {
 
   const templateId = formData.get("templateId");
   const template = typeof templateId === "string" ? findTemplate(templateId) : undefined;
-  const flipbook = await mutations.createFlipbook(user.id, { template, maxPages: entitlements.maxPagesPerFlipbook });
+  const flipbook = await mutations.createFlipbook(user.id, {
+    template,
+    maxPages: entitlements.maxPagesPerFlipbook,
+    maxStorageBytes: entitlements.maxStorageBytes,
+  });
   revalidatePath("/dashboard", "layout");
   redirect(`/dashboard/flipbooks/${flipbook.id}/editor`);
 }
